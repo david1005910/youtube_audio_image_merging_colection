@@ -1,0 +1,1 @@
+{"error":"Error: FFmpeg quit with code null (SIGABRT) The FFmpeg output was dyld[18733]: Symbol not found: (_AVCaptureDeviceTypeContinuityCamera)\n  Referenced from: '/Users/david/Documents/youtube_sub_search-main/remotion/node_modules/@remotion/compositor-darwin-x64/libavdevice.dylib'\n  Expected in: '/System/Library/Frameworks/AVFoundation.framework/Versions/A/AVFoundation'\n"}

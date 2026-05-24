@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Remotion 영상 편집 테스트</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #0f172a; }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin {
+            animation: spin 1s linear infinite;
+        }
+    </style>
+</head>
+<body class="text-white min-h-screen p-8">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8 text-center text-pink-400">
+            ✂️ Remotion 영상 편집 기능 테스트
+        </h1>
+
+        <div class="bg-slate-800 rounded-lg p-6 mb-6">
+            <h2 class="text-xl font-bold mb-4 text-green-400">📋 테스트 시나리오</h2>
+            
+            <div class="space-y-4 text-sm">
+                <div class="bg-slate-900/60 p-3 rounded-lg border-l-4 border-pink-500">
+                    <h3 class="font-bold text-pink-400 mb-1">1. 테스트 이미지 생성</h3>
+                    <p class="text-slate-400">아래 버튼으로 테스트용 이미지를 생성합니다</p>
+                </div>
+
+                <div class="bg-slate-900/60 p-3 rounded-lg border-l-4 border-purple-500">
+                    <h3 class="font-bold text-purple-400 mb-1">2. Remotion 편집기 열기</h3>
+                    <p class="text-slate-400">생성된 이미지를 Remotion 편집기로 보냅니다</p>
+                </div>
+
+                <div class="bg-slate-900/60 p-3 rounded-lg border-l-4 border-blue-500">
+                    <h3 class="font-bold text-blue-400 mb-1">3. 영상 렌더링</h3>
+                    <p class="text-slate-400">이미지를 영상으로 변환하여 다운로드합니다</p>
+                </div>
+            </div>
+            
+            <div class="mt-6 flex gap-4">
+                <button onclick="createTestImages()" class="flex-1 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-lg font-bold text-lg">
+                    🖼️ 테스트 이미지 생성
+                </button>
+                
+                <button onclick="openRemotionEditor()" class="flex-1 py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white rounded-lg font-bold text-lg">
+                    ✂️ Remotion 편집기 열기
+                </button>
+            </div>
+        </div>
+
+        <!-- 생성된 이미지 표시 영역 -->
+        <div id="imageDisplay" class="bg-slate-800 rounded-lg p-6 mb-6 hidden">
+            <h2 class="text-xl font-bold mb-4 text-blue-400">📸 생성된 이미지</h2>
+            <div id="imageGrid" class="grid grid-cols-4 gap-4"></div>
+        </div>
+
+        <!-- Remotion 서버 상태 -->
+        <div class="bg-slate-800 rounded-lg p-6">
+            <h2 class="text-xl font-bold mb-4 text-yellow-400">🔧 Remotion 서버 상태</h2>
+            <div id="serverStatus" class="text-sm">
+                <button onclick="checkRemotionServer()" class="px-4 py-2 bg-yellow-600 hover:bg-yellow-500 text-white rounded font-bold">
+                    서버 상태 확인
+                </button>
+                <div id="serverStatusResult" class="mt-3"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grok Modal (Remotion UI용) -->
+    <div id="grokModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 hidden px-4 py-6"
+         onclick="if(event.target===this) closeGrokModal()">
+      <div class="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+        <div class="flex justify-between items-center px-6 py-4 border-b border-slate-700 flex-shrink-0">
+          <div class="flex-1">
+            <h3 id="grokModalTitle" class="text-base font-bold text-pink-300">✂️ Remotion 영상 편집기</h3>
+            <p id="grokModalSubtitle" class="text-xs text-slate-400 mt-0.5">이미지를 영상으로 변환 · 자막 추가 · MP4 렌더링</p>
+          </div>
+          <button onclick="closeGrokModal()" class="text-slate-400 hover:text-white text-xl leading-none">✕</button>
+        </div>
+        <div id="grokModalBody" class="overflow-y-auto p-6 flex-1 text-sm"></div>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // Mock _imageCards 데이터
+        window._imageCards = [];
+        
+        // 테스트 이미지 생성
+        function createTestImages() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1920;
+            canvas.height = 1080;
+            const ctx = canvas.getContext('2d');
+            
+            const scenes = [
+                { title: '오프닝', subtitle: '환영합니다', color: '#FF6B6B' },
+                { title: '소개', subtitle: '제품을 소개합니다', color: '#4ECDC4' },
+                { title: '특징', subtitle: '주요 기능입니다', color: '#45B7D1' },
+                { title: '마무리', subtitle: '감사합니다', color: '#96CEB4' }
+            ];
+            
+            const imageDisplay = document.getElementById('imageDisplay');
+            const imageGrid = document.getElementById('imageGrid');
+            imageDisplay.classList.remove('hidden');
+            imageGrid.innerHTML = '';
+            
+            window._imageCards = scenes.map((scene, index) => {
+                // 캔버스에 그리기
+                ctx.fillStyle = scene.color;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 72px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(scene.title, canvas.width / 2, canvas.height / 2 - 50);
+                
+                ctx.font = '48px Arial';
+                ctx.fillText(scene.subtitle, canvas.width / 2, canvas.height / 2 + 50);
+                
+                const dataUrl = canvas.toDataURL('image/png');
+                
+                // DOM에 이미지 추가
+                const imgEl = document.createElement('img');
+                imgEl.id = `grok-img-el-${index}`;
+                imgEl.src = dataUrl;
+                imgEl.className = 'w-full h-32 object-cover rounded-lg border-2 border-slate-600';
+                imageGrid.appendChild(imgEl);
+                
+                return {
+                    chapterTitle: scene.title,
+                    subtitles: scene.subtitle,
+                    cutDescription: `장면 ${index + 1}: ${scene.title}`,
+                    prompt: `Scene ${index + 1} with ${scene.color} background`
+                };
+            });
+            
+            alert(`✅ ${scenes.length}개의 테스트 이미지가 생성되었습니다!`);
+        }
+        
+        // Grok 모달 닫기
+        function closeGrokModal() {
+            const modal = document.getElementById('grokModal');
+            if (modal) modal.classList.add('hidden');
+        }
+        
+        // Remotion 서버 상태 확인
+        function checkRemotionServer() {
+            const resultDiv = document.getElementById('serverStatusResult');
+            resultDiv.innerHTML = '<p class="text-yellow-400">🔄 확인 중...</p>';
+            
+            fetch('http://localhost:8766/health')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.ok) {
+                        resultDiv.innerHTML = `
+                            <div class="bg-green-900/40 p-3 rounded-lg border border-green-700">
+                                <p class="text-green-400 font-bold">✅ Remotion 서버 정상 작동 중</p>
+                                <p class="text-xs text-slate-400 mt-1">http://localhost:8766</p>
+                                <div class="mt-2 text-xs text-slate-400">
+                                    <p>• POST /render - 자막 합성</p>
+                                    <p>• POST /render-image - 이미지→비디오</p>
+                                    <p>• POST /render-slideshow - 슬라이드쇼</p>
+                                </div>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(err => {
+                    resultDiv.innerHTML = `
+                        <div class="bg-red-900/40 p-3 rounded-lg border border-red-700">
+                            <p class="text-red-400 font-bold">❌ Remotion 서버 연결 실패</p>
+                            <p class="text-xs text-slate-400 mt-2">서버를 시작하려면:</p>
+                            <code class="block mt-1 p-2 bg-slate-900 rounded text-xs">cd remotion && npm start</code>
+                        </div>
+                    `;
+                });
+        }
+        
+        // 페이지 로드 시 서버 상태 확인
+        window.addEventListener('DOMContentLoaded', () => {
+            checkRemotionServer();
+        });
+    </script>
+</body>
+</html>

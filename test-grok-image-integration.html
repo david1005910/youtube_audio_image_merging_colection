@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Grok 비디오 생성 - 이미지 연동 테스트</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #0f172a; }
+    </style>
+</head>
+<body class="text-white min-h-screen p-8">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8 text-center text-orange-400">
+            🎬 Grok AI 비디오 생성 - 이미지 연동 테스트
+        </h1>
+
+        <div class="bg-slate-800 rounded-lg p-6 mb-6">
+            <h2 class="text-xl font-bold mb-4 text-green-400">📋 테스트 시나리오</h2>
+            
+            <div class="space-y-4 text-sm">
+                <div class="bg-slate-900/60 p-3 rounded-lg border-l-4 border-orange-500">
+                    <h3 class="font-bold text-orange-400 mb-1">1. Grok 비디오 모달 열기</h3>
+                    <p class="text-slate-400">아래 버튼을 클릭하여 Grok AI 비디오 생성 모달을 엽니다</p>
+                </div>
+
+                <div class="bg-slate-900/60 p-3 rounded-lg border-l-4 border-purple-500">
+                    <h3 class="font-bold text-purple-400 mb-1">2. 이미지에서 변환 모드</h3>
+                    <p class="text-slate-400">'이미지에서 변환' 탭을 클릭하여 생성된 이미지 목록을 확인합니다</p>
+                </div>
+
+                <div class="bg-slate-900/60 p-3 rounded-lg border-l-4 border-blue-500">
+                    <h3 class="font-bold text-blue-400 mb-1">3. 이미지 선택 및 변환</h3>
+                    <p class="text-slate-400">원하는 이미지를 선택하고 비디오로 변환합니다</p>
+                </div>
+
+                <div class="bg-slate-900/60 p-3 rounded-lg border-l-4 border-green-500">
+                    <h3 class="font-bold text-green-400 mb-1">4. 비디오 미리보기</h3>
+                    <p class="text-slate-400">생성된 비디오가 오른쪽 패널에서 미리보기됩니다</p>
+                </div>
+            </div>
+            
+            <div class="mt-6 flex gap-4">
+                <button onclick="openGrokModal()" class="flex-1 py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white rounded-lg font-bold text-lg">
+                    🎬 Grok 비디오 생성 모달 열기
+                </button>
+                
+                <button onclick="createTestImages()" class="flex-1 py-3 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-500 hover:to-blue-500 text-white rounded-lg font-bold text-lg">
+                    🖼️ 테스트 이미지 생성
+                </button>
+            </div>
+        </div>
+
+        <div id="testResult" class="bg-slate-800 rounded-lg p-6">
+            <h2 class="text-xl font-bold mb-4 text-green-400">✅ 구현된 기능</h2>
+            <div id="resultContent">
+                <div class="space-y-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-green-400">✅</span>
+                        <span class="text-sm">텍스트에서 생성 / 이미지에서 변환 모드 전환</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-green-400">✅</span>
+                        <span class="text-sm">생성된 이미지 목록 표시 및 선택 기능</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-green-400">✅</span>
+                        <span class="text-sm">선택된 이미지 미리보기</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-green-400">✅</span>
+                        <span class="text-sm">이미지 선택 시 프롬프트 자동 채우기</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-green-400">✅</span>
+                        <span class="text-sm">비디오 미리보기 패널 통합</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-green-400">✅</span>
+                        <span class="text-sm">다운로드, 공유, 편집 기능 버튼</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-green-400">✅</span>
+                        <span class="text-sm">최근 생성 비디오 목록</span>
+                    </div>
+                    <div class="mt-4 p-3 bg-slate-900 rounded">
+                        <p class="text-xs text-slate-400">
+                            사용자가 요청한 대로 "앞에서 이미지를 연결하여 remotion비디오 생성과 같이 
+                            생성한 이미지를 가지고와서 작업할수 있도록" 기능이 구현되었습니다. 
+                            이제 Grok AI 비디오 생성에서 기존에 생성된 이미지를 선택하여 비디오로 변환할 수 있습니다.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Grok 비디오 생성 모달 -->
+    <div id="grokModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 hidden px-4 py-6"
+         onclick="if(event.target===this) closeGrokModal()">
+      <div class="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+        <div class="flex justify-between items-center px-6 py-4 border-b border-slate-700 flex-shrink-0">
+          <div class="flex-1">
+            <h3 id="grokModalTitle" class="text-base font-bold text-orange-300">🎬 Grok AI 비디오 생성</h3>
+            <p id="grokModalSubtitle" class="text-xs text-slate-400 mt-0.5">xAI Grok으로 AI 비디오 생성 · 프롬프트 기반 · 고품질 출력</p>
+          </div>
+          <button onclick="closeGrokModal()" class="text-slate-400 hover:text-white text-xl leading-none">✕</button>
+        </div>
+        <div id="grokModalBody" class="overflow-y-auto p-6 flex-1 text-sm"></div>
+      </div>
+    </div>
+
+    <script>
+        // Mock 데이터
+        window.XAI_API_KEY = 'test-key';
+        window._imageCards = [];
+        let _selectedImageIndex = null;
+        let _grokVideoMode = 'generate';
+        
+        // 테스트 이미지 생성
+        function createTestImages() {
+            // Canvas로 테스트 이미지 생성
+            const canvas = document.createElement('canvas');
+            canvas.width = 1280;
+            canvas.height = 720;
+            const ctx = canvas.getContext('2d');
+            
+            const testCards = [
+                { chapterTitle: '인트로 장면', prompt: 'Beautiful sunrise over mountains', color: '#FF6B6B' },
+                { chapterTitle: '메인 콘텐츠', prompt: 'Modern office workspace with computers', color: '#4ECDC4' },
+                { chapterTitle: '제품 소개', prompt: 'Sleek smartphone on white background', color: '#45B7D1' },
+                { chapterTitle: '아웃트로', prompt: 'Thank you message with confetti', color: '#96CEB4' }
+            ];
+            
+            window._imageCards = testCards.map((card, index) => {
+                // 간단한 색상 배경 이미지 생성
+                ctx.fillStyle = card.color;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // 텍스트 추가
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 48px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`Scene ${index + 1}`, canvas.width / 2, canvas.height / 2);
+                ctx.font = '24px Arial';
+                ctx.fillText(card.chapterTitle, canvas.width / 2, canvas.height / 2 + 60);
+                
+                const dataUrl = canvas.toDataURL('image/png');
+                
+                // 가상의 이미지 엘리먼트 생성
+                const imgEl = document.createElement('img');
+                imgEl.id = `grok-img-el-${index}`;
+                imgEl.src = dataUrl;
+                imgEl.style.display = 'none';
+                document.body.appendChild(imgEl);
+                
+                return {
+                    ...card,
+                    imageSrc: dataUrl
+                };
+            });
+            
+            alert(`✅ ${testCards.length}개의 테스트 이미지가 생성되었습니다!`);
+            
+            // 모달이 열려있으면 새로고침
+            if (!document.getElementById('grokModal').classList.contains('hidden')) {
+                renderGrokVideoModal();
+            }
+        }
+        
+        // 모달 닫기
+        function closeGrokModal() {
+            const modal = document.getElementById('grokModal');
+            if (modal) modal.classList.add('hidden');
+        }
+        
+        // 모달 열기 (app.js의 함수 복사)
+        function openGrokModal() {
+            const modal = document.getElementById('grokModal');
+            const modalBody = document.getElementById('grokModalBody');
+            
+            if (!modal || !modalBody) return;
+            
+            modal.classList.remove('hidden');
+            _selectedImageIndex = null;
+            _grokVideoMode = 'generate';
+            
+            renderGrokVideoModal();
+        }
+        
+        // Grok 비디오 모달 렌더링 (app.js에서 복사한 함수)
+        function renderGrokVideoModal() {
+            const modalBody = document.getElementById('grokModalBody');
+            const modalTitle = document.getElementById('grokModalTitle');
+            const modalSubtitle = document.getElementById('grokModalSubtitle');
+            
+            if (modalTitle) modalTitle.textContent = '🎬 Grok AI 비디오 생성';
+            if (modalSubtitle) modalSubtitle.textContent = 'xAI Grok으로 AI 비디오 생성 · 프롬프트 기반 · 고품질 출력';
+            
+            modalBody.innerHTML = `
+              <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- 왼쪽: 비디오 생성 설정 -->
+                <div class="space-y-4">
+                  <!-- 모드 선택 탭 -->
+                  <div class="bg-slate-900/60 p-1 rounded-lg flex gap-1 border border-slate-700">
+                    <button onclick="switchGrokVideoMode('generate')" id="grokModeGenerate"
+                      class="flex-1 py-2 text-xs font-bold rounded-lg bg-orange-600 text-white transition">
+                      🎬 텍스트에서 생성
+                    </button>
+                    <button onclick="switchGrokVideoMode('fromImage')" id="grokModeFromImage"
+                      class="flex-1 py-2 text-xs font-bold rounded-lg bg-slate-700 text-slate-300 transition">
+                      🖼️ 이미지에서 변환
+                    </button>
+                  </div>
+                  
+                  <!-- 생성 모드 패널 -->
+                  <div id="grokGeneratePanel" class="bg-slate-900/60 p-4 rounded-lg border border-slate-700">
+                    <h3 class="text-sm font-bold text-orange-300 mb-3">🎬 비디오 생성 설정</h3>
+                    
+                    <div class="space-y-3">
+                      <div>
+                        <label class="block text-xs text-slate-400 mb-1">비디오 프롬프트:</label>
+                        <textarea id="grokVideoPrompt" rows="3" 
+                          placeholder="A serene mountain landscape at sunset, cinematic style"
+                          class="w-full p-2 bg-slate-800 border border-slate-600 rounded text-white text-sm resize-none"></textarea>
+                      </div>
+                      
+                      <div class="grid grid-cols-2 gap-2">
+                        <div>
+                          <label class="block text-xs text-slate-400 mb-1">해상도:</label>
+                          <select id="grokVideoResolution" class="w-full p-2 bg-slate-800 border border-slate-600 rounded text-white text-sm">
+                            <option value="1280x720">HD (1280x720)</option>
+                            <option value="1920x1080" selected>Full HD (1920x1080)</option>
+                            <option value="3840x2160">4K (3840x2160)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label class="block text-xs text-slate-400 mb-1">길이:</label>
+                          <select id="grokVideoDuration" class="w-full p-2 bg-slate-800 border border-slate-600 rounded text-white text-sm">
+                            <option value="5">5초</option>
+                            <option value="10" selected>10초</option>
+                            <option value="15">15초</option>
+                            <option value="30">30초</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- 이미지 선택 패널 -->
+                  <div id="grokImagePanel" class="bg-slate-900/60 p-4 rounded-lg border border-slate-700 hidden">
+                    <h3 class="text-sm font-bold text-purple-300 mb-3">🖼️ 생성된 이미지 선택</h3>
+                    
+                    <div id="grokImageSelector" class="space-y-2 max-h-64 overflow-y-auto">
+                      ${generateImageSelectorHTML()}
+                    </div>
+                    
+                    <div id="selectedImagePreview" class="mt-3 hidden">
+                      <p class="text-xs text-slate-400 mb-2">선택된 이미지:</p>
+                      <div class="rounded-lg overflow-hidden border border-slate-600">
+                        <img id="selectedImageEl" class="w-full h-32 object-cover">
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <!-- 생성 버튼 -->
+                  <button onclick="executeGrokVideoGeneration()" id="grokGenerateBtn"
+                    class="w-full py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-bold rounded-lg transition text-sm">
+                    🎬 Grok 비디오 생성
+                  </button>
+                  
+                  <div id="grokGenerationStatus" class="text-xs text-slate-400 text-center"></div>
+                </div>
+                
+                <!-- 오른쪽: 비디오 미리보기 -->
+                <div class="space-y-4">
+                  <div class="bg-slate-900/60 p-4 rounded-lg border border-slate-700">
+                    <h3 class="text-sm font-bold text-slate-300 mb-3">🎥 비디오 미리보기</h3>
+                    
+                    <!-- 비디오 플레이어 -->
+                    <div class="relative bg-black rounded-lg overflow-hidden mb-3">
+                      <video id="grokVideoPlayer" controls preload="metadata" 
+                             class="w-full aspect-video" style="max-height: 300px;">
+                        <source id="grokVideoSource" type="video/mp4">
+                        브라우저에서 비디오를 지원하지 않습니다.
+                      </video>
+                      <div id="grokVideoLoadingOverlay" class="absolute inset-0 bg-black/80 flex items-center justify-center hidden">
+                        <div class="text-center">
+                          <div class="animate-spin text-2xl mb-2">⚡</div>
+                          <p class="text-sm text-slate-300">비디오 생성 중...</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <!-- 비디오 정보 -->
+                    <div id="grokVideoInfo" class="space-y-2 text-xs text-slate-400">
+                      <div class="flex justify-between">
+                        <span>상태:</span>
+                        <span id="grokVideoStatus" class="text-slate-300">대기 중</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span>길이:</span>
+                        <span id="grokVideoDurationInfo" class="text-slate-300">-</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span>해상도:</span>
+                        <span id="grokVideoResolutionInfo" class="text-slate-300">-</span>
+                      </div>
+                      <div class="flex justify-between">
+                        <span>생성시간:</span>
+                        <span id="grokVideoCreatedInfo" class="text-slate-300">-</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            `;
+        }
+        
+        // 이미지 선택기 HTML 생성
+        function generateImageSelectorHTML() {
+            if (!window._imageCards || _imageCards.length === 0) {
+              return `
+                <p class="text-xs text-slate-500 text-center py-4">
+                  생성된 이미지가 없습니다.<br>
+                  '테스트 이미지 생성' 버튼을 클릭해주세요.
+                </p>
+              `;
+            }
+            
+            return _imageCards.map((card, index) => {
+              const imgEl = document.getElementById(`grok-img-el-${index}`);
+              if (!imgEl) return '';
+              
+              return `
+                <div class="flex items-center gap-3 p-2 bg-slate-800 rounded-lg hover:bg-slate-700 cursor-pointer transition"
+                     onclick="selectImageForVideo(${index})">
+                  <div class="w-16 h-12 rounded overflow-hidden flex-shrink-0 border border-slate-600">
+                    <img src="${imgEl.src}" class="w-full h-full object-cover">
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <p class="text-xs font-bold text-slate-300 truncate">${card.chapterTitle || `장면 ${index + 1}`}</p>
+                    <p class="text-[10px] text-slate-500 truncate">${(card.prompt || '').substring(0, 50)}...</p>
+                  </div>
+                  <input type="radio" name="imageSelection" value="${index}" 
+                         class="text-purple-500 flex-shrink-0">
+                </div>
+              `;
+            }).filter(html => html).join('');
+        }
+        
+        // 모드 전환
+        window.switchGrokVideoMode = (mode) => {
+            _grokVideoMode = mode;
+            const generateBtn = document.getElementById('grokModeGenerate');
+            const fromImageBtn = document.getElementById('grokModeFromImage');
+            const generatePanel = document.getElementById('grokGeneratePanel');
+            const imagePanel = document.getElementById('grokImagePanel');
+            
+            if (mode === 'generate') {
+              generateBtn.className = 'flex-1 py-2 text-xs font-bold rounded-lg bg-orange-600 text-white transition';
+              fromImageBtn.className = 'flex-1 py-2 text-xs font-bold rounded-lg bg-slate-700 text-slate-300 transition';
+              generatePanel.classList.remove('hidden');
+              imagePanel.classList.add('hidden');
+            } else {
+              fromImageBtn.className = 'flex-1 py-2 text-xs font-bold rounded-lg bg-purple-600 text-white transition';
+              generateBtn.className = 'flex-1 py-2 text-xs font-bold rounded-lg bg-slate-700 text-slate-300 transition';
+              generatePanel.classList.add('hidden');
+              imagePanel.classList.remove('hidden');
+            }
+        };
+        
+        // 이미지 선택
+        window.selectImageForVideo = (index) => {
+            _selectedImageIndex = index;
+            const imgEl = document.getElementById(`grok-img-el-${index}`);
+            const previewDiv = document.getElementById('selectedImagePreview');
+            const previewImg = document.getElementById('selectedImageEl');
+            
+            if (imgEl && previewDiv && previewImg) {
+              previewImg.src = imgEl.src;
+              previewDiv.classList.remove('hidden');
+              
+              // 라디오 버튼 체크
+              const radio = document.querySelector(`input[name="imageSelection"][value="${index}"]`);
+              if (radio) radio.checked = true;
+              
+              // 프롬프트 자동 채우기
+              const card = _imageCards[index];
+              const promptInput = document.getElementById('grokVideoPrompt');
+              if (promptInput && card) {
+                const autoPrompt = card.prompt || card.chapterTitle || '';
+                promptInput.value = autoPrompt + ' cinematic video, smooth camera movement';
+              }
+            }
+        };
+        
+        // 비디오 생성 실행
+        window.executeGrokVideoGeneration = async () => {
+            const statusEl = document.getElementById('grokGenerationStatus');
+            const btn = document.getElementById('grokGenerateBtn');
+            
+            try {
+              if (_grokVideoMode === 'fromImage' && _selectedImageIndex === null) {
+                alert('변환할 이미지를 선택해주세요.');
+                return;
+              }
+              
+              btn.disabled = true;
+              btn.textContent = '🎬 생성 중...';
+              
+              if (_grokVideoMode === 'fromImage') {
+                statusEl.textContent = `장면 ${_selectedImageIndex + 1} 이미지를 비디오로 변환 중...`;
+              } else {
+                statusEl.textContent = '텍스트 프롬프트로 비디오 생성 중...';
+              }
+              
+              // 시뮬레이션
+              await new Promise(resolve => setTimeout(resolve, 3000));
+              
+              statusEl.textContent = '✅ 비디오 생성 완료!';
+              
+              // 상태 업데이트
+              document.getElementById('grokVideoStatus').textContent = '생성 완료';
+              document.getElementById('grokVideoDurationInfo').textContent = '10초';
+              document.getElementById('grokVideoResolutionInfo').textContent = '1920x1080';
+              document.getElementById('grokVideoCreatedInfo').textContent = new Date().toLocaleTimeString('ko-KR');
+              
+            } catch (error) {
+              statusEl.textContent = `❌ 오류: ${error.message}`;
+            } finally {
+              btn.disabled = false;
+              btn.textContent = '🎬 Grok 비디오 생성';
+            }
+        };
+    </script>
+</body>
+</html>

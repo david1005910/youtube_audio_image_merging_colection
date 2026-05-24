@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>간단한 Remotion 테스트</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>body { background: #0f172a; }</style>
+</head>
+<body class="text-white p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6 text-center text-purple-400">
+            🎬 Remotion 렌더링 테스트
+        </h1>
+        
+        <div class="bg-slate-800 p-6 rounded-xl mb-6">
+            <button onclick="generateAndRender()" 
+                class="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold rounded-lg text-lg">
+                🎨 이미지 생성 → 영상 렌더링
+            </button>
+        </div>
+        
+        <div id="status" class="bg-slate-900 p-4 rounded-lg mb-6 text-sm"></div>
+        
+        <!-- 생성된 이미지 미리보기 -->
+        <div class="bg-slate-800 p-4 rounded-lg mb-6">
+            <h3 class="text-lg font-bold mb-3">📸 생성된 이미지</h3>
+            <canvas id="testCanvas" width="640" height="360" class="w-full border border-slate-600 rounded"></canvas>
+        </div>
+        
+        <!-- 렌더링 결과 -->
+        <div id="result" class="bg-slate-800 p-4 rounded-lg hidden">
+            <h3 class="text-lg font-bold mb-3">🎬 렌더링 결과</h3>
+            <div id="videoContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        async function generateAndRender() {
+            const statusEl = document.getElementById('status');
+            const resultEl = document.getElementById('result');
+            const videoContainer = document.getElementById('videoContainer');
+            
+            try {
+                // Step 1: 이미지 생성
+                statusEl.innerHTML = '🎨 테스트 이미지 생성 중...';
+                
+                const canvas = document.getElementById('testCanvas');
+                const ctx = canvas.getContext('2d');
+                
+                // 실제 화면 크기로 설정
+                canvas.width = 1920;
+                canvas.height = 1080;
+                
+                // 그라데이션 배경
+                const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+                gradient.addColorStop(0, '#8B5CF6');  // purple-500
+                gradient.addColorStop(1, '#EC4899');  // pink-500
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // 중앙 원
+                ctx.beginPath();
+                ctx.arc(canvas.width/2, canvas.height/2, 200, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.fill();
+                
+                // 텍스트
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 100px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+                ctx.shadowBlur = 20;
+                ctx.fillText('REMOTION', canvas.width/2, canvas.height/2 - 50);
+                
+                ctx.font = '60px Arial';
+                ctx.fillText('테스트', canvas.width/2, canvas.height/2 + 80);
+                
+                // 현재 시간 추가
+                ctx.font = '40px Arial';
+                ctx.fillText(new Date().toLocaleTimeString('ko-KR'), canvas.width/2, canvas.height/2 + 160);
+                
+                const dataUrl = canvas.toDataURL('image/png');
+                
+                // 미리보기용으로 화면 크기 재조정
+                canvas.width = 640;
+                canvas.height = 360;
+                
+                // 미리보기 다시 그리기
+                const img = new Image();
+                img.onload = () => {
+                    ctx.drawImage(img, 0, 0, 640, 360);
+                };
+                img.src = dataUrl;
+                
+                statusEl.innerHTML = '✅ 이미지 생성 완료<br>🎬 Remotion 서버로 렌더링 요청 중...';
+                
+                // Step 2: Remotion 렌더링
+                const response = await fetch('http://localhost:8766/render-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        imageSrc: dataUrl,
+                        subtitle: '🎉 Remotion 렌더링 테스트 성공! 🎉',
+                        duration: 5,
+                        fps: 30,
+                        width: 1920,
+                        height: 1080
+                    })
+                });
+                
+                if (response.ok) {
+                    statusEl.innerHTML = '🎬 렌더링 중... (30초 정도 소요)';
+                    
+                    const blob = await response.blob();
+                    const videoUrl = URL.createObjectURL(blob);
+                    
+                    // 결과 표시
+                    videoContainer.innerHTML = \`
+                        <video controls autoplay muted class="w-full max-w-2xl mx-auto rounded-lg">
+                            <source src="\${videoUrl}" type="video/mp4">
+                            브라우저에서 비디오를 지원하지 않습니다.
+                        </video>
+                        <div class="mt-4 text-center">
+                            <a href="\${videoUrl}" download="remotion-test.mp4" 
+                               class="inline-block px-6 py-3 bg-green-600 hover:bg-green-500 text-white font-bold rounded-lg transition">
+                                💾 비디오 다운로드
+                            </a>
+                        </div>
+                    \`;
+                    
+                    resultEl.classList.remove('hidden');
+                    statusEl.innerHTML = \`
+                        <div class="text-green-400">
+                            ✅ <strong>렌더링 완료!</strong><br>
+                            📊 해상도: 1920x1080<br>
+                            🎞️ 프레임레이트: 30 FPS<br>
+                            ⏱️ 길이: 5초<br>
+                            💾 파일 크기: \${(blob.size / 1024 / 1024).toFixed(2)} MB
+                        </div>
+                    \`;
+                    
+                } else {
+                    const errorText = await response.text();
+                    throw new Error(\`렌더링 실패 (\${response.status}): \${errorText}\`);
+                }
+                
+            } catch (error) {
+                console.error('렌더링 오류:', error);
+                statusEl.innerHTML = \`
+                    <div class="text-red-400">
+                        ❌ <strong>오류 발생:</strong><br>
+                        \${error.message}<br><br>
+                        🔧 <strong>해결 방법:</strong><br>
+                        1. Remotion 서버가 실행 중인지 확인<br>
+                        2. 터미널에서 <code class="bg-slate-700 px-2 py-1 rounded">cd remotion && npm start</code> 실행
+                    </div>
+                \`;
+            }
+        }
+        
+        // 페이지 로드 시 서버 상태 확인
+        window.addEventListener('DOMContentLoaded', async () => {
+            const statusEl = document.getElementById('status');
+            statusEl.innerHTML = '🔧 Remotion 서버 상태 확인 중...';
+            
+            try {
+                const response = await fetch('http://localhost:8766/health');
+                const data = await response.json();
+                
+                if (data.ok) {
+                    statusEl.innerHTML = \`
+                        <div class="text-green-400">
+                            ✅ <strong>Remotion 서버 정상 작동!</strong><br>
+                            📡 서버: http://localhost:8766<br>
+                            🎬 준비됨: 이미지 → 비디오 렌더링
+                        </div>
+                    \`;
+                } else {
+                    throw new Error('서버 응답 이상');
+                }
+            } catch (error) {
+                statusEl.innerHTML = \`
+                    <div class="text-yellow-400">
+                        ⚠️ <strong>Remotion 서버 연결 실패</strong><br>
+                        터미널에서 다음 명령을 실행해주세요:<br>
+                        <code class="bg-slate-700 px-2 py-1 rounded mt-2 block">cd remotion && npm start</code>
+                    </div>
+                \`;
+            }
+        });
+    </script>
+</body>
+</html>

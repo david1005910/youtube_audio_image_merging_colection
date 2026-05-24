@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>이미지 생성 및 Remotion 테스트</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: #0f172a; }
+        .spinner {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top-color: #6366f1;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="text-white min-h-screen p-8">
+    <div class="max-w-7xl mx-auto">
+        <h1 class="text-4xl font-bold mb-8 text-center bg-gradient-to-r from-blue-400 to-purple-400 text-transparent bg-clip-text">
+            🎨 이미지 생성 → Remotion 영상 편집 테스트
+        </h1>
+
+        <!-- Step 1: 이미지 생성 -->
+        <div class="bg-slate-800 rounded-xl p-6 mb-6 border border-slate-700">
+            <h2 class="text-2xl font-bold mb-4 text-blue-400">Step 1: 테스트 이미지 생성</h2>
+            
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <button onclick="generateTestImages()" 
+                    class="py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-500 hover:to-purple-500 text-white font-bold rounded-lg transition">
+                    🎨 테스트 이미지 4개 생성
+                </button>
+                
+                <button onclick="generateAIImages()" 
+                    class="py-3 bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-500 hover:to-teal-500 text-white font-bold rounded-lg transition">
+                    ✨ AI 스타일 이미지 생성
+                </button>
+            </div>
+            
+            <div id="imageGenerationStatus" class="text-sm text-slate-400"></div>
+            
+            <!-- 생성된 이미지 표시 -->
+            <div id="generatedImages" class="grid grid-cols-4 gap-4 mt-4"></div>
+        </div>
+
+        <!-- Step 2: Remotion 편집 -->
+        <div class="bg-slate-800 rounded-xl p-6 mb-6 border border-slate-700">
+            <h2 class="text-2xl font-bold mb-4 text-pink-400">Step 2: Remotion 영상 편집</h2>
+            
+            <div class="grid grid-cols-3 gap-4">
+                <button onclick="checkRemotionServer()" 
+                    class="py-3 bg-yellow-600 hover:bg-yellow-500 text-white font-bold rounded-lg transition">
+                    🔧 서버 상태 확인
+                </button>
+                
+                <button onclick="openRemotionEditor()" id="openEditorBtn" disabled
+                    class="py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
+                    ✂️ Remotion 편집기 열기
+                </button>
+                
+                <button onclick="quickRender()" id="quickRenderBtn" disabled
+                    class="py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-bold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
+                    🎬 빠른 렌더링
+                </button>
+            </div>
+            
+            <div id="remotionStatus" class="mt-4"></div>
+        </div>
+
+        <!-- Step 3: 결과 -->
+        <div class="bg-slate-800 rounded-xl p-6 border border-slate-700">
+            <h2 class="text-2xl font-bold mb-4 text-green-400">Step 3: 렌더링 결과</h2>
+            <div id="renderResult" class="text-sm text-slate-400">
+                <p>아직 렌더링된 영상이 없습니다.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Remotion 편집 모달 -->
+    <div id="grokModal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 hidden px-4 py-6"
+         onclick="if(event.target===this) closeGrokModal()">
+      <div class="bg-slate-800 border border-slate-700 rounded-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+        <div class="flex justify-between items-center px-6 py-4 border-b border-slate-700 flex-shrink-0">
+          <div class="flex-1">
+            <h3 id="grokModalTitle" class="text-base font-bold text-pink-300">🎬 Remotion 영상 편집기</h3>
+            <p id="grokModalSubtitle" class="text-xs text-slate-400 mt-0.5">이미지를 영상으로 변환 · 자막 추가 · MP4 렌더링</p>
+          </div>
+          <button onclick="closeGrokModal()" class="text-slate-400 hover:text-white text-xl leading-none">✕</button>
+        </div>
+        <div id="grokModalBody" class="overflow-y-auto p-6 flex-1 text-sm"></div>
+      </div>
+    </div>
+
+    <script>
+        // 전역 변수
+        window._imageCards = [];
+        let remotionServerOk = false;
+
+        // 테스트 이미지 생성
+        function generateTestImages() {
+            const statusEl = document.getElementById('imageGenerationStatus');
+            const container = document.getElementById('generatedImages');
+            
+            statusEl.innerHTML = '<div class="flex items-center gap-2"><div class="spinner"></div> 이미지 생성 중...</div>';
+            container.innerHTML = '';
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = 1920;
+            canvas.height = 1080;
+            const ctx = canvas.getContext('2d');
+            
+            const scenes = [
+                { title: '인트로', subtitle: 'YouTube 콘텐츠 제작', color: '#667eea', gradient: '#764ba2' },
+                { title: '주제 소개', subtitle: '오늘의 핫 키워드', color: '#f093fb', gradient: '#f5576c' },
+                { title: '핵심 내용', subtitle: '시청자 관심사 분석', color: '#4facfe', gradient: '#00f2fe' },
+                { title: '아웃트로', subtitle: '구독과 좋아요 부탁드려요', color: '#43e97b', gradient: '#38f9d7' }
+            ];
+            
+            window._imageCards = [];
+            
+            scenes.forEach((scene, index) => {
+                // 그라데이션 배경
+                const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+                gradient.addColorStop(0, scene.color);
+                gradient.addColorStop(1, scene.gradient);
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // 반투명 오버레이
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // 텍스트
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                // 제목
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 120px Arial';
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
+                ctx.shadowBlur = 10;
+                ctx.fillText(scene.title, canvas.width / 2, canvas.height / 2 - 80);
+                
+                // 부제목
+                ctx.font = '60px Arial';
+                ctx.fillText(scene.subtitle, canvas.width / 2, canvas.height / 2 + 80);
+                
+                // 장면 번호
+                ctx.font = 'bold 48px Arial';
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.fillText(`Scene ${index + 1}`, canvas.width / 2, canvas.height - 100);
+                
+                const dataUrl = canvas.toDataURL('image/png');
+                
+                // DOM에 이미지 추가
+                const imgWrapper = document.createElement('div');
+                imgWrapper.className = 'relative group';
+                imgWrapper.innerHTML = `
+                    <img id="grok-img-el-${index}" src="${dataUrl}" 
+                         class="w-full h-40 object-cover rounded-lg border-2 border-slate-600 group-hover:border-purple-500 transition">
+                    <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2 rounded-b-lg">
+                        <p class="text-xs font-bold text-white">${scene.title}</p>
+                        <p class="text-[10px] text-slate-300">${scene.subtitle}</p>
+                    </div>
+                `;
+                container.appendChild(imgWrapper);
+                
+                // _imageCards에 추가
+                window._imageCards.push({
+                    chapterTitle: scene.title,
+                    subtitles: scene.subtitle,
+                    cutDescription: `Scene ${index + 1}: ${scene.title}`,
+                    prompt: `Gradient background from ${scene.color} to ${scene.gradient}`,
+                    imageSrc: dataUrl
+                });
+            });
+            
+            statusEl.innerHTML = `<span class="text-green-400">✅ ${scenes.length}개 이미지 생성 완료!</span>`;
+            
+            // 버튼 활성화
+            document.getElementById('openEditorBtn').disabled = false;
+            document.getElementById('quickRenderBtn').disabled = false;
+        }
+
+        // AI 스타일 이미지 생성
+        function generateAIImages() {
+            const statusEl = document.getElementById('imageGenerationStatus');
+            statusEl.innerHTML = '<span class="text-yellow-400">⚠️ AI 이미지 생성은 Gemini API 키가 필요합니다.</span>';
+            
+            // 대신 아티스틱한 테스트 이미지 생성
+            generateArtisticImages();
+        }
+
+        // 아티스틱 테스트 이미지
+        function generateArtisticImages() {
+            const statusEl = document.getElementById('imageGenerationStatus');
+            const container = document.getElementById('generatedImages');
+            
+            statusEl.innerHTML = '<div class="flex items-center gap-2"><div class="spinner"></div> 아티스틱 이미지 생성 중...</div>';
+            container.innerHTML = '';
+            
+            const canvas = document.createElement('canvas');
+            canvas.width = 1920;
+            canvas.height = 1080;
+            const ctx = canvas.getContext('2d');
+            
+            const artStyles = [
+                { title: 'Abstract', subtitle: 'Modern Art Style', pattern: 'circles' },
+                { title: 'Geometric', subtitle: 'Sharp Angles', pattern: 'triangles' },
+                { title: 'Organic', subtitle: 'Natural Flow', pattern: 'waves' },
+                { title: 'Minimal', subtitle: 'Less is More', pattern: 'lines' }
+            ];
+            
+            window._imageCards = [];
+            
+            artStyles.forEach((style, index) => {
+                // 랜덤 배경색
+                const hue = (index * 90) % 360;
+                ctx.fillStyle = `hsl(${hue}, 70%, 30%)`;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // 패턴 그리기
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.lineWidth = 2;
+                
+                for (let i = 0; i < 20; i++) {
+                    const x = Math.random() * canvas.width;
+                    const y = Math.random() * canvas.height;
+                    const size = Math.random() * 200 + 50;
+                    
+                    ctx.beginPath();
+                    if (style.pattern === 'circles') {
+                        ctx.arc(x, y, size, 0, Math.PI * 2);
+                    } else if (style.pattern === 'triangles') {
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(x + size, y);
+                        ctx.lineTo(x + size/2, y - size);
+                        ctx.closePath();
+                    } else if (style.pattern === 'waves') {
+                        ctx.moveTo(x, y);
+                        ctx.quadraticCurveTo(x + size/2, y - size, x + size, y);
+                    } else {
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(x + size, y + size);
+                    }
+                    ctx.stroke();
+                }
+                
+                // 텍스트 오버레이
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 100px Arial';
+                ctx.textAlign = 'center';
+                ctx.shadowColor = 'black';
+                ctx.shadowBlur = 20;
+                ctx.fillText(style.title, canvas.width / 2, canvas.height / 2);
+                
+                ctx.font = '50px Arial';
+                ctx.fillText(style.subtitle, canvas.width / 2, canvas.height / 2 + 100);
+                
+                const dataUrl = canvas.toDataURL('image/png');
+                
+                // DOM에 추가
+                const imgWrapper = document.createElement('div');
+                imgWrapper.className = 'relative group';
+                imgWrapper.innerHTML = `
+                    <img id="grok-img-el-${index}" src="${dataUrl}" 
+                         class="w-full h-40 object-cover rounded-lg border-2 border-slate-600 group-hover:border-blue-500 transition">
+                    <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2 rounded-b-lg">
+                        <p class="text-xs font-bold text-white">${style.title}</p>
+                        <p class="text-[10px] text-slate-300">${style.subtitle}</p>
+                    </div>
+                `;
+                container.appendChild(imgWrapper);
+                
+                window._imageCards.push({
+                    chapterTitle: style.title,
+                    subtitles: style.subtitle,
+                    cutDescription: `Artistic ${style.pattern} pattern`,
+                    prompt: `Abstract art with ${style.pattern}`,
+                    imageSrc: dataUrl
+                });
+            });
+            
+            statusEl.innerHTML = `<span class="text-green-400">✅ ${artStyles.length}개 아티스틱 이미지 생성 완료!</span>`;
+            
+            document.getElementById('openEditorBtn').disabled = false;
+            document.getElementById('quickRenderBtn').disabled = false;
+        }
+
+        // Remotion 서버 확인
+        function checkRemotionServer() {
+            const statusEl = document.getElementById('remotionStatus');
+            statusEl.innerHTML = '<div class="flex items-center gap-2"><div class="spinner"></div> 서버 확인 중...</div>';
+            
+            fetch('http://localhost:8766/health')
+                .then(res => res.json())
+                .then(data => {
+                    if (data.ok) {
+                        remotionServerOk = true;
+                        statusEl.innerHTML = `
+                            <div class="bg-green-900/40 p-4 rounded-lg border border-green-600">
+                                <p class="text-green-400 font-bold">✅ Remotion 서버 정상 작동!</p>
+                                <p class="text-xs text-slate-400 mt-1">http://localhost:8766 연결 성공</p>
+                            </div>
+                        `;
+                    }
+                })
+                .catch(err => {
+                    remotionServerOk = false;
+                    statusEl.innerHTML = `
+                        <div class="bg-red-900/40 p-4 rounded-lg border border-red-600">
+                            <p class="text-red-400 font-bold">❌ Remotion 서버 연결 실패</p>
+                            <p class="text-xs text-slate-400 mt-2">터미널에서 실행:</p>
+                            <code class="block mt-2 p-2 bg-slate-900 rounded text-xs font-mono">cd remotion && npm start</code>
+                        </div>
+                    `;
+                });
+        }
+
+        // Remotion 편집기 열기
+        function openRemotionEditor() {
+            if (!window._imageCards || window._imageCards.length === 0) {
+                alert('먼저 이미지를 생성해주세요!');
+                return;
+            }
+            
+            if (!remotionServerOk) {
+                if (confirm('Remotion 서버가 확인되지 않았습니다. 그래도 계속하시겠습니까?')) {
+                    showRemotionUI();
+                }
+            } else {
+                showRemotionUI();
+            }
+        }
+
+        // Remotion UI 표시
+        function showRemotionUI() {
+            const modal = document.getElementById('grokModal');
+            const modalBody = document.getElementById('grokModalBody');
+            
+            modal.classList.remove('hidden');
+            
+            modalBody.innerHTML = `
+                <div class="space-y-6">
+                    <div class="bg-slate-900/60 p-4 rounded-lg border border-pink-600">
+                        <h3 class="text-lg font-bold text-pink-300 mb-4">📸 생성된 이미지 (${window._imageCards.length}개)</h3>
+                        <div class="grid grid-cols-4 gap-3">
+                            ${window._imageCards.map((card, idx) => `
+                                <div class="relative">
+                                    <img src="${card.imageSrc}" class="w-full h-24 object-cover rounded-lg border border-slate-600">
+                                    <div class="absolute bottom-0 left-0 right-0 bg-black/70 p-1 rounded-b-lg">
+                                        <p class="text-[10px] text-white truncate">${card.chapterTitle}</p>
+                                    </div>
+                                    <input type="number" value="5" min="1" max="30" id="dur-${idx}"
+                                        class="absolute top-1 right-1 w-14 bg-black/80 text-white text-xs p-1 rounded"
+                                        placeholder="초">
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                    
+                    <div class="bg-slate-900/60 p-4 rounded-lg border border-slate-700">
+                        <h3 class="text-sm font-bold text-slate-300 mb-3">⚙️ 렌더링 설정</h3>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">해상도</label>
+                                <select id="remotionResolution" class="w-full p-2 bg-slate-800 border border-slate-600 rounded text-sm text-white">
+                                    <option value="1920x1080">Full HD (1920x1080)</option>
+                                    <option value="1280x720">HD (1280x720)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-slate-400 mb-1">FPS</label>
+                                <select id="remotionFps" class="w-full p-2 bg-slate-800 border border-slate-600 rounded text-sm text-white">
+                                    <option value="30">30 FPS</option>
+                                    <option value="24">24 FPS</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button onclick="startRemotion Rendering()" 
+                        class="w-full py-3 bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 text-white font-bold rounded-lg transition">
+                        🎬 영상 렌더링 시작
+                    </button>
+                    
+                    <div id="renderProgress" class="hidden"></div>
+                </div>
+            `;
+        }
+
+        // 빠른 렌더링
+        async function quickRender() {
+            if (!window._imageCards || window._imageCards.length === 0) {
+                alert('먼저 이미지를 생성해주세요!');
+                return;
+            }
+            
+            const resultEl = document.getElementById('renderResult');
+            resultEl.innerHTML = '<div class="flex items-center gap-2"><div class="spinner"></div> 렌더링 중...</div>';
+            
+            try {
+                // 첫 번째 이미지만 테스트 렌더링
+                const response = await fetch('http://localhost:8766/render-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        imageSrc: window._imageCards[0].imageSrc,
+                        subtitle: window._imageCards[0].subtitles,
+                        duration: 5,
+                        fps: 30,
+                        width: 1920,
+                        height: 1080
+                    })
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = URL.createObjectURL(blob);
+                    
+                    resultEl.innerHTML = `
+                        <div class="bg-green-900/40 p-4 rounded-lg border border-green-600">
+                            <p class="text-green-400 font-bold mb-3">✅ 렌더링 완료!</p>
+                            <video controls class="w-full max-w-2xl rounded-lg">
+                                <source src="${url}" type="video/mp4">
+                            </video>
+                            <a href="${url}" download="test-video.mp4" 
+                               class="inline-block mt-3 px-4 py-2 bg-green-600 hover:bg-green-500 text-white rounded font-bold transition">
+                                💾 다운로드
+                            </a>
+                        </div>
+                    `;
+                } else {
+                    throw new Error('렌더링 실패');
+                }
+            } catch (error) {
+                resultEl.innerHTML = `
+                    <div class="bg-red-900/40 p-4 rounded-lg border border-red-600">
+                        <p class="text-red-400 font-bold">❌ 렌더링 오류</p>
+                        <p class="text-xs text-slate-400 mt-1">${error.message}</p>
+                    </div>
+                `;
+            }
+        }
+
+        // 모달 닫기
+        function closeGrokModal() {
+            document.getElementById('grokModal').classList.add('hidden');
+        }
+
+        // Remotion 렌더링 시작
+        async function startRemotionRendering() {
+            const progressEl = document.getElementById('renderProgress');
+            progressEl.classList.remove('hidden');
+            progressEl.innerHTML = '<div class="flex items-center gap-2"><div class="spinner"></div> 렌더링 진행 중...</div>';
+            
+            // 실제 렌더링 로직...
+            await quickRender();
+            closeGrokModal();
+        }
+
+        // 페이지 로드 시 자동 실행
+        window.addEventListener('DOMContentLoaded', () => {
+            checkRemotionServer();
+            generateTestImages(); // 자동으로 테스트 이미지 생성
+        });
+    </script>
+</body>
+</html>

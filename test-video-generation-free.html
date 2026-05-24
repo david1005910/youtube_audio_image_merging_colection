@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>무료 영상 생성 테스트</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8">🎬 무료 영상 생성 도구</h1>
+        
+        <!-- FFmpeg 기반 이미지→영상 변환 -->
+        <div class="bg-white p-6 rounded-lg shadow-lg mb-6">
+            <h2 class="text-xl font-semibold mb-4">1. FFmpeg: 이미지 → 영상 (완전 무료)</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">이미지 URL</label>
+                    <input type="text" id="ffmpegImageUrl" 
+                           class="w-full p-2 border rounded"
+                           placeholder="https://picsum.photos/1920/1080"
+                           value="https://picsum.photos/1920/1080">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">자막 텍스트</label>
+                    <input type="text" id="ffmpegText" 
+                           class="w-full p-2 border rounded"
+                           placeholder="영상에 표시할 텍스트"
+                           value="AI Generated Video">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">재생 시간 (초)</label>
+                        <input type="number" id="ffmpegDuration" 
+                               class="w-full p-2 border rounded"
+                               value="5" min="1" max="30">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">효과</label>
+                        <select id="ffmpegEffect" class="w-full p-2 border rounded">
+                            <option value="none">없음</option>
+                            <option value="zoom">줌인</option>
+                            <option value="pan">패닝</option>
+                            <option value="fade">페이드</option>
+                        </select>
+                    </div>
+                </div>
+                <button onclick="createFFmpegVideo()" 
+                        class="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-semibold">
+                    🎥 FFmpeg로 영상 생성
+                </button>
+                <div id="ffmpegResult" class="mt-4"></div>
+            </div>
+        </div>
+
+        <!-- Pollinations + FFmpeg 조합 -->
+        <div class="bg-white p-6 rounded-lg shadow-lg mb-6">
+            <h2 class="text-xl font-semibold mb-4">2. AI 이미지 + 영상 변환 (무료 조합)</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">이미지 프롬프트</label>
+                    <textarea id="aiVideoPrompt" 
+                              class="w-full p-2 border rounded h-20"
+                              placeholder="생성할 이미지 설명">futuristic city at sunset, cyberpunk style, neon lights</textarea>
+                </div>
+                <div class="grid grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">영상 길이</label>
+                        <select id="aiVideoDuration" class="w-full p-2 border rounded">
+                            <option value="3">3초</option>
+                            <option value="5" selected>5초</option>
+                            <option value="10">10초</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">배경음악</label>
+                        <select id="aiVideoMusic" class="w-full p-2 border rounded">
+                            <option value="none">없음</option>
+                            <option value="ambient">앰비언트</option>
+                            <option value="upbeat">경쾌한</option>
+                            <option value="dramatic">드라마틱</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">텍스트 위치</label>
+                        <select id="aiVideoTextPos" class="w-full p-2 border rounded">
+                            <option value="none">없음</option>
+                            <option value="top">상단</option>
+                            <option value="center">중앙</option>
+                            <option value="bottom" selected>하단</option>
+                        </select>
+                    </div>
+                </div>
+                <button onclick="createAIVideo()" 
+                        class="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 font-semibold">
+                    🤖 AI 이미지 생성 → 영상 변환
+                </button>
+                <div id="aiVideoResult" class="mt-4"></div>
+            </div>
+        </div>
+
+        <!-- Canvas 애니메이션 영상 -->
+        <div class="bg-white p-6 rounded-lg shadow-lg mb-6">
+            <h2 class="text-xl font-semibold mb-4">3. Canvas 애니메이션 (브라우저 기반)</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">애니메이션 타입</label>
+                    <select id="canvasType" class="w-full p-2 border rounded">
+                        <option value="text">텍스트 애니메이션</option>
+                        <option value="particles">파티클 효과</option>
+                        <option value="waves">웨이브 효과</option>
+                        <option value="slideshow">이미지 슬라이드</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">텍스트/제목</label>
+                    <input type="text" id="canvasText" 
+                           class="w-full p-2 border rounded"
+                           value="Amazing Animation">
+                </div>
+                <button onclick="createCanvasAnimation()" 
+                        class="px-6 py-3 bg-purple-500 text-white rounded-lg hover:bg-purple-600 font-semibold">
+                    ✨ Canvas 애니메이션 생성
+                </button>
+                <canvas id="animationCanvas" width="1280" height="720" 
+                        class="mt-4 w-full border rounded shadow hidden"></canvas>
+                <div id="canvasResult" class="mt-4"></div>
+            </div>
+        </div>
+
+        <!-- Grok API (X.AI) -->
+        <div class="bg-white p-6 rounded-lg shadow-lg">
+            <h2 class="text-xl font-semibold mb-4">4. Grok API (X.AI - API 키 필요)</h2>
+            <div class="space-y-4">
+                <div class="bg-yellow-50 border border-yellow-200 rounded p-3 text-sm">
+                    ⚠️ XAI_API_KEY가 .env 파일에 설정되어 있어야 합니다.
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">프롬프트</label>
+                    <input type="text" id="grokPrompt" 
+                           class="w-full p-2 border rounded"
+                           placeholder="영상 설명"
+                           value="A cat playing piano">
+                </div>
+                <button onclick="createGrokVideo()" 
+                        class="px-6 py-3 bg-orange-500 text-white rounded-lg hover:bg-orange-600 font-semibold">
+                    🎯 Grok으로 영상 생성
+                </button>
+                <div id="grokResult" class="mt-4"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 1. FFmpeg 기반 영상 생성
+        async function createFFmpegVideo() {
+            const imageUrl = document.getElementById('ffmpegImageUrl').value;
+            const text = document.getElementById('ffmpegText').value;
+            const duration = document.getElementById('ffmpegDuration').value;
+            const effect = document.getElementById('ffmpegEffect').value;
+            const resultDiv = document.getElementById('ffmpegResult');
+            
+            resultDiv.innerHTML = '<div class="text-blue-500">⏳ FFmpeg로 영상 생성 중...</div>';
+            
+            try {
+                const response = await fetch('/api/ffmpeg/image-to-video', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        imageUrl, text, duration: parseInt(duration), effect
+                    })
+                });
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const videoUrl = URL.createObjectURL(blob);
+                    resultDiv.innerHTML = `
+                        <div class="text-green-500 mb-2">✅ 영상 생성 완료!</div>
+                        <video controls class="w-full max-w-2xl rounded shadow">
+                            <source src="${videoUrl}" type="video/mp4">
+                        </video>
+                    `;
+                } else {
+                    throw new Error('영상 생성 실패');
+                }
+            } catch (error) {
+                // 대체 방법: 간단한 시뮬레이션
+                resultDiv.innerHTML = `
+                    <div class="bg-blue-50 border border-blue-200 rounded p-4">
+                        <p class="text-blue-700 mb-2">💡 FFmpeg 명령어 (로컬에서 실행):</p>
+                        <code class="bg-gray-100 p-2 rounded block text-xs">
+ffmpeg -loop 1 -i image.jpg -vf "drawtext=text='${text}':fontsize=40:fontcolor=white:box=1:boxcolor=black@0.5:x=(w-text_w)/2:y=h-100" -c:v libx264 -t ${duration} -pix_fmt yuv420p output.mp4
+                        </code>
+                    </div>
+                `;
+            }
+        }
+
+        // 2. AI 이미지 + 영상 변환
+        async function createAIVideo() {
+            const prompt = document.getElementById('aiVideoPrompt').value;
+            const duration = document.getElementById('aiVideoDuration').value;
+            const resultDiv = document.getElementById('aiVideoResult');
+            
+            resultDiv.innerHTML = '<div class="text-blue-500">⏳ AI 이미지 생성 중...</div>';
+            
+            try {
+                // 1단계: Pollinations로 이미지 생성
+                const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1920&height=1080`;
+                
+                resultDiv.innerHTML = `
+                    <div class="text-blue-500 mb-2">⏳ 이미지 생성 완료, 영상 변환 중...</div>
+                    <img src="${imageUrl}" class="w-full max-w-md rounded shadow mb-4">
+                `;
+                
+                // 2단계: FFmpeg 명령어 표시
+                setTimeout(() => {
+                    resultDiv.innerHTML += `
+                        <div class="bg-green-50 border border-green-200 rounded p-4">
+                            <p class="text-green-700 mb-2">✅ 영상 변환 준비 완료!</p>
+                            <p class="text-sm mb-2">생성된 이미지를 영상으로 변환하려면:</p>
+                            <code class="bg-gray-100 p-2 rounded block text-xs">
+ffmpeg -loop 1 -i "${imageUrl}" -c:v libx264 -t ${duration} -pix_fmt yuv420p ai_video.mp4
+                            </code>
+                        </div>
+                    `;
+                }, 2000);
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="text-red-500">❌ 오류: ${error.message}</div>`;
+            }
+        }
+
+        // 3. Canvas 애니메이션
+        function createCanvasAnimation() {
+            const type = document.getElementById('canvasType').value;
+            const text = document.getElementById('canvasText').value;
+            const canvas = document.getElementById('animationCanvas');
+            const ctx = canvas.getContext('2d');
+            const resultDiv = document.getElementById('canvasResult');
+            
+            canvas.classList.remove('hidden');
+            
+            // 배경 그리기
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            gradient.addColorStop(0, '#667eea');
+            gradient.addColorStop(1, '#764ba2');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // 텍스트 애니메이션
+            let frame = 0;
+            const animate = () => {
+                ctx.fillStyle = gradient;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // 텍스트 그리기
+                ctx.font = 'bold 60px Arial';
+                ctx.fillStyle = 'white';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                const x = canvas.width / 2;
+                const y = canvas.height / 2 + Math.sin(frame * 0.05) * 20;
+                
+                ctx.save();
+                ctx.shadowColor = 'rgba(0,0,0,0.5)';
+                ctx.shadowBlur = 10;
+                ctx.fillText(text, x, y);
+                ctx.restore();
+                
+                // 파티클 효과
+                if (type === 'particles') {
+                    for (let i = 0; i < 5; i++) {
+                        const px = Math.random() * canvas.width;
+                        const py = Math.random() * canvas.height;
+                        const size = Math.random() * 3 + 1;
+                        
+                        ctx.fillStyle = 'rgba(255,255,255,0.8)';
+                        ctx.beginPath();
+                        ctx.arc(px, py, size, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+                
+                frame++;
+                if (frame < 150) {
+                    requestAnimationFrame(animate);
+                } else {
+                    // 애니메이션 완료
+                    resultDiv.innerHTML = `
+                        <div class="bg-purple-50 border border-purple-200 rounded p-4">
+                            <p class="text-purple-700">✅ Canvas 애니메이션 완료!</p>
+                            <p class="text-sm mt-2">녹화하려면 MediaRecorder API를 사용하거나 화면 녹화 도구를 사용하세요.</p>
+                        </div>
+                    `;
+                }
+            };
+            
+            animate();
+        }
+
+        // 4. Grok API
+        async function createGrokVideo() {
+            const prompt = document.getElementById('grokPrompt').value;
+            const resultDiv = document.getElementById('grokResult');
+            
+            resultDiv.innerHTML = '<div class="text-orange-500">⏳ Grok API 호출 중...</div>';
+            
+            try {
+                const response = await fetch('/api/proxy/grok-video', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        duration: 10,
+                        aspect_ratio: '16:9',
+                        resolution: '720p'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.innerHTML = `
+                        <div class="bg-orange-50 border border-orange-200 rounded p-4">
+                            <p class="text-orange-700">🎬 영상 생성 요청 완료!</p>
+                            <p class="text-sm mt-2">Request ID: ${data.id || 'N/A'}</p>
+                            <p class="text-sm">상태를 확인하려면 잠시 기다려주세요...</p>
+                        </div>
+                    `;
+                } else {
+                    throw new Error(data.error || 'API 키가 설정되지 않았습니다');
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="bg-red-50 border border-red-200 rounded p-4">
+                        <p class="text-red-700">❌ ${error.message}</p>
+                        <p class="text-sm mt-2">XAI_API_KEY를 .env 파일에 추가하세요.</p>
+                    </div>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 이미지 → 영상 자동 변환 워크플로우</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .workflow-step {
+            position: relative;
+        }
+        .workflow-step::after {
+            content: '→';
+            position: absolute;
+            right: -30px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 24px;
+            color: #4B5563;
+        }
+        .workflow-step:last-child::after {
+            display: none;
+        }
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-7xl mx-auto">
+        <h1 class="text-4xl font-bold mb-4">🎬 AI 이미지 → 영상 자동 변환 시스템</h1>
+        <p class="text-gray-600 mb-8">AI로 이미지를 생성하고 자동으로 영상으로 변환하는 완전 무료 워크플로우</p>
+
+        <!-- 워크플로우 진행 표시 -->
+        <div class="bg-white p-6 rounded-lg shadow-lg mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <div class="workflow-step flex-1 text-center p-4 rounded" id="step1">
+                    <div class="text-2xl mb-2">🎨</div>
+                    <div class="font-semibold">1. 프롬프트 입력</div>
+                </div>
+                <div class="workflow-step flex-1 text-center p-4 rounded" id="step2">
+                    <div class="text-2xl mb-2">🖼️</div>
+                    <div class="font-semibold">2. AI 이미지 생성</div>
+                </div>
+                <div class="workflow-step flex-1 text-center p-4 rounded" id="step3">
+                    <div class="text-2xl mb-2">🎥</div>
+                    <div class="font-semibold">3. 영상 변환</div>
+                </div>
+                <div class="workflow-step flex-1 text-center p-4 rounded" id="step4">
+                    <div class="text-2xl mb-2">✅</div>
+                    <div class="font-semibold">4. 완료</div>
+                </div>
+            </div>
+            <div class="bg-gray-200 rounded-full h-2">
+                <div id="progressBar" class="bg-blue-500 h-2 rounded-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+        </div>
+
+        <!-- 메인 컨트롤 패널 -->
+        <div class="grid grid-cols-2 gap-6">
+            <!-- 왼쪽: 입력 및 설정 -->
+            <div class="bg-white p-6 rounded-lg shadow-lg">
+                <h2 class="text-2xl font-bold mb-4">📝 설정</h2>
+                
+                <!-- 이미지 생성 방법 선택 -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">이미지 생성 방법</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="selectImageMethod('pollinations')" 
+                                id="btn-pollinations"
+                                class="p-3 border-2 border-blue-500 rounded-lg bg-blue-50">
+                            <div class="font-semibold">Pollinations</div>
+                            <div class="text-xs text-gray-600">완전 무료, 제한 없음</div>
+                        </button>
+                        <button onclick="selectImageMethod('gemini')" 
+                                id="btn-gemini"
+                                class="p-3 border-2 border-gray-300 rounded-lg">
+                            <div class="font-semibold">Gemini Imagen</div>
+                            <div class="text-xs text-gray-600">고품질, API 키 필요</div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Gemini API 키 (선택시만 표시) -->
+                <div id="geminiKeySection" class="mb-4 hidden">
+                    <label class="block text-sm font-medium mb-2">Gemini API 키</label>
+                    <input type="password" id="geminiApiKey" 
+                           class="w-full p-2 border rounded"
+                           placeholder="AIzaSy...">
+                </div>
+
+                <!-- 프롬프트 입력 -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">이미지 프롬프트</label>
+                    <textarea id="imagePrompt" 
+                              class="w-full p-3 border rounded-lg h-24"
+                              placeholder="생성할 이미지를 설명하세요 (영어 추천)">A majestic mountain landscape at sunset with golden clouds, cinematic lighting, ultra realistic, 4K quality</textarea>
+                </div>
+
+                <!-- 영상 설정 -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">영상 설정</label>
+                    <div class="grid grid-cols-3 gap-2">
+                        <div>
+                            <label class="text-xs">재생 시간</label>
+                            <select id="videoDuration" class="w-full p-2 border rounded">
+                                <option value="3">3초</option>
+                                <option value="5" selected>5초</option>
+                                <option value="10">10초</option>
+                                <option value="15">15초</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs">효과</label>
+                            <select id="videoEffect" class="w-full p-2 border rounded">
+                                <option value="none">없음</option>
+                                <option value="zoom">줌인</option>
+                                <option value="pan">패닝</option>
+                                <option value="fade">페이드</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="text-xs">해상도</label>
+                            <select id="videoResolution" class="w-full p-2 border rounded">
+                                <option value="720p">720p</option>
+                                <option value="1080p" selected>1080p</option>
+                                <option value="4K">4K</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 텍스트 오버레이 -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium mb-2">텍스트 오버레이 (선택)</label>
+                    <input type="text" id="overlayText" 
+                           class="w-full p-2 border rounded"
+                           placeholder="영상에 표시할 텍스트">
+                </div>
+
+                <!-- 배치 처리 -->
+                <div class="mb-4 p-3 bg-yellow-50 rounded-lg">
+                    <label class="flex items-center">
+                        <input type="checkbox" id="batchMode" class="mr-2">
+                        <span class="text-sm">배치 모드 (여러 영상 한번에 생성)</span>
+                    </label>
+                    <div id="batchSettings" class="mt-2 hidden">
+                        <input type="number" id="batchCount" value="3" min="2" max="10"
+                               class="w-20 p-1 border rounded text-sm">
+                        <span class="text-sm text-gray-600">개 생성</span>
+                    </div>
+                </div>
+
+                <!-- 실행 버튼 -->
+                <button onclick="startWorkflow()" 
+                        id="startBtn"
+                        class="w-full py-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-lg font-bold text-lg hover:from-blue-600 hover:to-purple-700 transition-all">
+                    🚀 워크플로우 시작
+                </button>
+            </div>
+
+            <!-- 오른쪽: 결과 및 미리보기 -->
+            <div class="bg-white p-6 rounded-lg shadow-lg">
+                <h2 class="text-2xl font-bold mb-4">📺 결과</h2>
+                
+                <!-- 상태 표시 -->
+                <div id="statusArea" class="mb-4 p-4 bg-gray-50 rounded-lg min-h-[100px]">
+                    <div class="text-gray-500 text-center">
+                        워크플로우를 시작하면 여기에 진행 상황이 표시됩니다.
+                    </div>
+                </div>
+
+                <!-- 이미지 미리보기 -->
+                <div id="imagePreview" class="mb-4 hidden">
+                    <h3 class="font-semibold mb-2">생성된 이미지</h3>
+                    <img id="generatedImage" class="w-full rounded-lg shadow">
+                </div>
+
+                <!-- 영상 결과 -->
+                <div id="videoResult" class="hidden">
+                    <h3 class="font-semibold mb-2">최종 영상</h3>
+                    <video id="finalVideo" controls class="w-full rounded-lg shadow"></video>
+                    <div class="mt-3 flex gap-2">
+                        <button onclick="downloadVideo()" 
+                                class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+                            💾 다운로드
+                        </button>
+                        <button onclick="shareVideo()" 
+                                class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                            📤 공유
+                        </button>
+                        <button onclick="editVideo()" 
+                                class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600">
+                            ✏️ 편집
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 템플릿 갤러리 -->
+        <div class="bg-white p-6 rounded-lg shadow-lg mt-6">
+            <h2 class="text-xl font-bold mb-4">🎭 빠른 템플릿</h2>
+            <div class="grid grid-cols-4 gap-4">
+                <button onclick="applyTemplate('youtube-intro')" 
+                        class="p-4 bg-gradient-to-br from-red-500 to-pink-500 text-white rounded-lg">
+                    <div class="text-2xl mb-1">🎬</div>
+                    <div class="text-sm font-semibold">유튜브 인트로</div>
+                </button>
+                <button onclick="applyTemplate('product-showcase')" 
+                        class="p-4 bg-gradient-to-br from-green-500 to-teal-500 text-white rounded-lg">
+                    <div class="text-2xl mb-1">📦</div>
+                    <div class="text-sm font-semibold">제품 소개</div>
+                </button>
+                <button onclick="applyTemplate('social-media')" 
+                        class="p-4 bg-gradient-to-br from-purple-500 to-indigo-500 text-white rounded-lg">
+                    <div class="text-2xl mb-1">📱</div>
+                    <div class="text-sm font-semibold">소셜 미디어</div>
+                </button>
+                <button onclick="applyTemplate('education')" 
+                        class="p-4 bg-gradient-to-br from-blue-500 to-cyan-500 text-white rounded-lg">
+                    <div class="text-2xl mb-1">📚</div>
+                    <div class="text-sm font-semibold">교육 콘텐츠</div>
+                </button>
+            </div>
+        </div>
+
+        <!-- 배치 처리 결과 -->
+        <div id="batchResults" class="hidden bg-white p-6 rounded-lg shadow-lg mt-6">
+            <h2 class="text-xl font-bold mb-4">📦 배치 처리 결과</h2>
+            <div id="batchGrid" class="grid grid-cols-3 gap-4"></div>
+        </div>
+    </div>
+
+    <script>
+        let selectedMethod = 'pollinations';
+        let currentWorkflow = null;
+        let generatedImageUrl = null;
+        let finalVideoBlob = null;
+
+        // 서버에서 API 키 로드
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                if (response.ok) {
+                    const config = await response.json();
+                    if (config.GEMINI_API_KEY) {
+                        document.getElementById('geminiApiKey').value = config.GEMINI_API_KEY;
+                    }
+                }
+            } catch (error) {
+                console.log('Running in browser mode');
+            }
+        }
+        loadConfig();
+
+        // 이미지 생성 방법 선택
+        function selectImageMethod(method) {
+            selectedMethod = method;
+            
+            // UI 업데이트
+            document.querySelectorAll('[id^="btn-"]').forEach(btn => {
+                btn.classList.remove('border-blue-500', 'bg-blue-50');
+                btn.classList.add('border-gray-300');
+            });
+            
+            document.getElementById(`btn-${method}`).classList.remove('border-gray-300');
+            document.getElementById(`btn-${method}`).classList.add('border-blue-500', 'bg-blue-50');
+            
+            // Gemini 선택시 API 키 입력 표시
+            document.getElementById('geminiKeySection').classList.toggle('hidden', method !== 'gemini');
+        }
+
+        // 배치 모드 토글
+        document.getElementById('batchMode').addEventListener('change', (e) => {
+            document.getElementById('batchSettings').classList.toggle('hidden', !e.target.checked);
+        });
+
+        // 워크플로우 시작
+        async function startWorkflow() {
+            const prompt = document.getElementById('imagePrompt').value;
+            const duration = parseInt(document.getElementById('videoDuration').value);
+            const effect = document.getElementById('videoEffect').value;
+            const overlayText = document.getElementById('overlayText').value;
+            const batchMode = document.getElementById('batchMode').checked;
+            const batchCount = parseInt(document.getElementById('batchCount').value);
+            
+            if (!prompt) {
+                alert('프롬프트를 입력하세요!');
+                return;
+            }
+            
+            // 버튼 비활성화
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('startBtn').textContent = '⏳ 처리 중...';
+            
+            if (batchMode) {
+                await processBatch(prompt, duration, effect, overlayText, batchCount);
+            } else {
+                await processSingle(prompt, duration, effect, overlayText);
+            }
+            
+            // 버튼 복원
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('startBtn').textContent = '🚀 워크플로우 시작';
+        }
+
+        // 단일 처리
+        async function processSingle(prompt, duration, effect, overlayText) {
+            try {
+                // Step 1: 프롬프트 입력
+                updateProgress(1, '프롬프트 준비 중...');
+                await sleep(500);
+                
+                // Step 2: 이미지 생성
+                updateProgress(2, 'AI 이미지 생성 중...');
+                generatedImageUrl = await generateImage(prompt);
+                
+                if (generatedImageUrl) {
+                    showImagePreview(generatedImageUrl);
+                    
+                    // Step 3: 영상 변환
+                    updateProgress(3, '영상으로 변환 중...');
+                    const videoBlob = await convertToVideo(generatedImageUrl, duration, effect, overlayText);
+                    
+                    if (videoBlob) {
+                        // Step 4: 완료
+                        updateProgress(4, '✅ 완료!');
+                        showVideoResult(videoBlob);
+                    }
+                }
+            } catch (error) {
+                updateStatus(`❌ 오류: ${error.message}`, 'error');
+            }
+        }
+
+        // 배치 처리
+        async function processBatch(prompt, duration, effect, overlayText, count) {
+            document.getElementById('batchResults').classList.remove('hidden');
+            const batchGrid = document.getElementById('batchGrid');
+            batchGrid.innerHTML = '';
+            
+            for (let i = 0; i < count; i++) {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'border rounded-lg p-3';
+                itemDiv.innerHTML = `
+                    <div class="text-sm font-semibold mb-2">영상 ${i + 1}</div>
+                    <div class="loading-spinner mx-auto mb-2"></div>
+                    <div class="text-xs text-gray-500">생성 중...</div>
+                `;
+                batchGrid.appendChild(itemDiv);
+                
+                // 비동기 생성
+                (async () => {
+                    const modifiedPrompt = `${prompt}, variation ${i + 1}`;
+                    const imageUrl = await generateImage(modifiedPrompt);
+                    if (imageUrl) {
+                        const videoBlob = await convertToVideo(imageUrl, duration, effect, overlayText);
+                        if (videoBlob) {
+                            const videoUrl = URL.createObjectURL(videoBlob);
+                            itemDiv.innerHTML = `
+                                <video controls class="w-full rounded mb-2">
+                                    <source src="${videoUrl}" type="video/mp4">
+                                </video>
+                                <button onclick="downloadBlob('${videoUrl}', 'video_${i + 1}.mp4')" 
+                                        class="text-xs px-2 py-1 bg-blue-500 text-white rounded">
+                                    다운로드
+                                </button>
+                            `;
+                        }
+                    }
+                })();
+            }
+        }
+
+        // 이미지 생성
+        async function generateImage(prompt) {
+            if (selectedMethod === 'pollinations') {
+                // Pollinations API (무료)
+                const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1920&height=1080&nologo=true&seed=${Date.now()}`;
+                
+                // 프록시를 통해 이미지 가져오기
+                try {
+                    const response = await fetch('/api/proxy/pollinations', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            prompt: prompt,
+                            width: 1920,
+                            height: 1080
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const blob = await response.blob();
+                        return URL.createObjectURL(blob);
+                    }
+                } catch (error) {
+                    // 프록시 실패시 직접 URL 사용
+                    return imageUrl;
+                }
+            } else if (selectedMethod === 'gemini') {
+                // Gemini Imagen API
+                const apiKey = document.getElementById('geminiApiKey').value;
+                if (!apiKey) {
+                    alert('Gemini API 키를 입력하세요!');
+                    return null;
+                }
+                
+                const response = await fetch('/api/proxy/gemini-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        geminiApiKey: apiKey,
+                        prompt: prompt,
+                        model: 'imagen-4.0-fast-generate-001'
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.predictions && data.predictions[0]) {
+                        const base64 = data.predictions[0].bytesBase64Encoded;
+                        return `data:image/png;base64,${base64}`;
+                    }
+                }
+            }
+            
+            return null;
+        }
+
+        // 영상 변환
+        async function convertToVideo(imageUrl, duration, effect, overlayText) {
+            // FFmpeg API 호출
+            try {
+                const response = await fetch('/api/ffmpeg/image-to-video', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        imageUrl: imageUrl,
+                        text: overlayText,
+                        duration: duration,
+                        effect: effect
+                    })
+                });
+                
+                if (response.ok) {
+                    return await response.blob();
+                } else {
+                    // FFmpeg 실패시 Canvas 녹화 방법 사용
+                    return await createCanvasVideo(imageUrl, duration, overlayText);
+                }
+            } catch (error) {
+                console.error('Video conversion error:', error);
+                return await createCanvasVideo(imageUrl, duration, overlayText);
+            }
+        }
+
+        // Canvas로 영상 생성 (폴백)
+        async function createCanvasVideo(imageUrl, duration, text) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 1920;
+            canvas.height = 1080;
+            const ctx = canvas.getContext('2d');
+            
+            // 이미지 로드
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            await new Promise((resolve, reject) => {
+                img.onload = resolve;
+                img.onerror = reject;
+                img.src = imageUrl;
+            });
+            
+            // MediaRecorder 설정
+            const stream = canvas.captureStream(30);
+            const recorder = new MediaRecorder(stream, {
+                mimeType: 'video/webm;codecs=vp9',
+                videoBitsPerSecond: 5000000
+            });
+            
+            const chunks = [];
+            recorder.ondataavailable = (e) => chunks.push(e.data);
+            
+            return new Promise((resolve) => {
+                recorder.onstop = () => {
+                    const blob = new Blob(chunks, { type: 'video/webm' });
+                    resolve(blob);
+                };
+                
+                recorder.start();
+                
+                // 애니메이션 렌더링
+                let frame = 0;
+                const fps = 30;
+                const totalFrames = duration * fps;
+                
+                const render = () => {
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    // 텍스트 오버레이
+                    if (text) {
+                        ctx.font = 'bold 60px Arial';
+                        ctx.fillStyle = 'white';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(text, canvas.width / 2, canvas.height - 100);
+                    }
+                    
+                    frame++;
+                    if (frame < totalFrames) {
+                        requestAnimationFrame(render);
+                    } else {
+                        recorder.stop();
+                    }
+                };
+                
+                render();
+            });
+        }
+
+        // UI 업데이트 함수들
+        function updateProgress(step, message) {
+            // 진행 단계 하이라이트
+            for (let i = 1; i <= 4; i++) {
+                const stepEl = document.getElementById(`step${i}`);
+                if (i === step) {
+                    stepEl.classList.add('bg-blue-100', 'border-blue-500');
+                } else if (i < step) {
+                    stepEl.classList.add('bg-green-100');
+                } else {
+                    stepEl.classList.remove('bg-blue-100', 'bg-green-100', 'border-blue-500');
+                }
+            }
+            
+            // 진행바 업데이트
+            const progress = (step / 4) * 100;
+            document.getElementById('progressBar').style.width = `${progress}%`;
+            
+            // 상태 메시지
+            updateStatus(message);
+        }
+
+        function updateStatus(message, type = 'info') {
+            const statusArea = document.getElementById('statusArea');
+            const icon = type === 'error' ? '❌' : type === 'success' ? '✅' : '⏳';
+            statusArea.innerHTML = `
+                <div class="flex items-center">
+                    <span class="text-2xl mr-3">${icon}</span>
+                    <span class="${type === 'error' ? 'text-red-600' : 'text-gray-700'}">${message}</span>
+                </div>
+            `;
+        }
+
+        function showImagePreview(imageUrl) {
+            const preview = document.getElementById('imagePreview');
+            const img = document.getElementById('generatedImage');
+            preview.classList.remove('hidden');
+            img.src = imageUrl;
+        }
+
+        function showVideoResult(blob) {
+            finalVideoBlob = blob;
+            const videoUrl = URL.createObjectURL(blob);
+            const result = document.getElementById('videoResult');
+            const video = document.getElementById('finalVideo');
+            
+            result.classList.remove('hidden');
+            video.src = videoUrl;
+        }
+
+        // 템플릿 적용
+        function applyTemplate(template) {
+            const templates = {
+                'youtube-intro': {
+                    prompt: 'YouTube channel intro animation, modern, dynamic, colorful gradients, professional',
+                    duration: 5,
+                    effect: 'zoom',
+                    text: 'SUBSCRIBE NOW'
+                },
+                'product-showcase': {
+                    prompt: 'Product showcase, elegant, minimalist, white background, professional photography',
+                    duration: 10,
+                    effect: 'pan',
+                    text: 'NEW PRODUCT'
+                },
+                'social-media': {
+                    prompt: 'Social media post, trendy, vibrant colors, eye-catching design',
+                    duration: 3,
+                    effect: 'fade',
+                    text: '#TRENDING'
+                },
+                'education': {
+                    prompt: 'Educational content, clean, professional, infographic style',
+                    duration: 15,
+                    effect: 'none',
+                    text: 'LEARN MORE'
+                }
+            };
+            
+            const t = templates[template];
+            if (t) {
+                document.getElementById('imagePrompt').value = t.prompt;
+                document.getElementById('videoDuration').value = t.duration;
+                document.getElementById('videoEffect').value = t.effect;
+                document.getElementById('overlayText').value = t.text;
+            }
+        }
+
+        // 다운로드, 공유, 편집 함수들
+        function downloadVideo() {
+            if (finalVideoBlob) {
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(finalVideoBlob);
+                a.download = `ai-video-${Date.now()}.mp4`;
+                a.click();
+            }
+        }
+
+        function shareVideo() {
+            alert('공유 기능은 곧 추가됩니다!');
+        }
+
+        function editVideo() {
+            alert('편집 기능은 곧 추가됩니다!');
+        }
+
+        function downloadBlob(url, filename) {
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+        }
+
+        function sleep(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+    </script>
+</body>
+</html>

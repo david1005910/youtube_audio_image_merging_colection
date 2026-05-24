@@ -568,6 +568,113 @@ class Handler(SimpleHTTPRequestHandler):
             finally:
                 shutil.rmtree(tmpdir, ignore_errors=True)
 
+        # ── FFmpeg 이미지→영상 변환 ────────────────────────────
+        elif self.path == '/api/ffmpeg/image-to-video':
+            import tempfile, subprocess, base64
+            data = json.loads(body_raw)
+            image_url = data.get('imageUrl', '')
+            text = data.get('text', '')
+            duration = data.get('duration', 5)
+            effect = data.get('effect', 'none')
+            
+            if not image_url:
+                _send_json(self, 400, {'error': 'imageUrl required'}); return
+            
+            ffmpeg_path = shutil.which('ffmpeg') or '/usr/local/bin/ffmpeg'
+            if not ffmpeg_path or not Path(ffmpeg_path).exists():
+                _send_json(self, 500, {'error': 'ffmpeg not installed'}); return
+            
+            tmpdir = tempfile.mkdtemp(prefix='ffmpeg_video_')
+            try:
+                # 이미지 다운로드
+                img_path = os.path.join(tmpdir, 'input.jpg')
+                req = urllib.request.Request(image_url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req, timeout=15, context=_ssl_ctx) as resp:
+                    with open(img_path, 'wb') as f:
+                        f.write(resp.read())
+                
+                out_path = os.path.join(tmpdir, 'output.mp4')
+                
+                # FFmpeg 명령 구성
+                if effect == 'zoom':
+                    filter_complex = f"scale=8000:-1,zoompan=z='zoom+0.001':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={duration*25}:s=1920x1080"
+                elif effect == 'pan':
+                    filter_complex = f"scale=4000:-1,crop=1920:1080:'(iw-1920)*t/{duration}':0"
+                else:
+                    filter_complex = "scale=1920:1080"
+                
+                # 텍스트 추가
+                if text:
+                    text_escaped = text.replace("'", "\\'").replace(":", "\\:")
+                    filter_complex += f",drawtext=text='{text_escaped}':fontsize=50:fontcolor=white:box=1:boxcolor=black@0.5:x=(w-text_w)/2:y=h-100"
+                
+                cmd = [
+                    ffmpeg_path, '-y',
+                    '-loop', '1',
+                    '-i', img_path,
+                    '-vf', filter_complex,
+                    '-c:v', 'libx264',
+                    '-t', str(duration),
+                    '-pix_fmt', 'yuv420p',
+                    '-preset', 'fast',
+                    out_path
+                ]
+                
+                result = subprocess.run(cmd, capture_output=True, timeout=30)
+                if result.returncode != 0:
+                    _send_json(self, 500, {'error': 'FFmpeg failed', 'stderr': result.stderr.decode()[-500:]}); return
+                
+                with open(out_path, 'rb') as f:
+                    video_data = f.read()
+                
+                self.send_response(200)
+                self.send_header('Content-Type', 'video/mp4')
+                self.send_header('Content-Length', len(video_data))
+                self.send_header('Content-Disposition', 'attachment; filename="generated.mp4"')
+                self.end_headers()
+                self.wfile.write(video_data)
+                
+            except Exception as e:
+                _send_json(self, 500, {'error': str(e)})
+            finally:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+
+        # ── Pollinations 이미지 프록시 ────────────────────────────
+        elif self.path == '/api/proxy/pollinations':
+            data = json.loads(body_raw)
+            prompt = data.get('prompt', 'beautiful landscape')
+            width = data.get('width', 1024)
+            height = data.get('height', 1024)
+            nologo = data.get('nologo', 'true')
+            
+            pollinations_url = f'https://image.pollinations.ai/prompt/{urllib.parse.quote(prompt, safe="")}?width={width}&height={height}&nologo={nologo}'
+            
+            try:
+                req = urllib.request.Request(
+                    pollinations_url,
+                    headers={
+                        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+                        'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+                        'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
+                        'Cache-Control': 'no-cache',
+                        'Pragma': 'no-cache'
+                    }
+                )
+                
+                with urllib.request.urlopen(req, timeout=30, context=_ssl_ctx) as resp:
+                    image_data = resp.read()
+                    content_type = resp.headers.get('Content-Type', 'image/jpeg')
+                
+                self.send_response(200)
+                self.send_header('Content-Type', content_type)
+                self.send_header('Content-Length', len(image_data))
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                self.wfile.write(image_data)
+                
+            except Exception as e:
+                _send_json(self, 500, {'error': str(e)})
+
         else:
             self.send_response(404)
             self.end_headers()

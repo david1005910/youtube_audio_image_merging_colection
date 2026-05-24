@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>Gemini/Pollinations → Remotion 통합 테스트</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>body { background: #0f172a; }</style>
+</head>
+<body class="text-white p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-6 text-center text-purple-400">
+            🎬 Gemini/Pollinations → Remotion 통합 테스트
+        </h1>
+        
+        <!-- API 키 설정 -->
+        <div class="bg-slate-800 p-6 rounded-xl mb-6">
+            <h2 class="text-xl font-bold mb-4 text-blue-400">🔑 API 키 설정</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">Gemini API 키:</label>
+                    <input type="password" id="geminiApiKey" placeholder="AIza..." 
+                           class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">Pollinations (키 불필요):</label>
+                    <input type="text" value="무료 - 키 불필요" disabled 
+                           class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-slate-400">
+                </div>
+            </div>
+            <div id="apiStatus" class="mt-4 text-sm"></div>
+        </div>
+        
+        <!-- 이미지 생성 -->
+        <div class="bg-slate-800 p-6 rounded-xl mb-6">
+            <h2 class="text-xl font-bold mb-4 text-green-400">🎨 이미지 생성</h2>
+            
+            <!-- 엔진 선택 -->
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">생성 엔진:</label>
+                <div class="flex gap-4">
+                    <label class="flex items-center">
+                        <input type="radio" name="engine" value="gemini" checked class="mr-2">
+                        <span>Gemini Imagen 4.0 (고품질)</span>
+                    </label>
+                    <label class="flex items-center">
+                        <input type="radio" name="engine" value="pollinations" class="mr-2">
+                        <span>Pollinations (무료)</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">이미지 프롬프트:</label>
+                <textarea id="imagePrompt" rows="3" 
+                          class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white resize-none"
+                          placeholder="예: A serene mountain landscape at sunset with a lake reflection">A beautiful sunset over a mountain lake, cinematic lighting, peaceful atmosphere, high quality</textarea>
+            </div>
+            
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-2">자막 텍스트:</label>
+                <input type="text" id="subtitleText" 
+                       class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white"
+                       placeholder="예: 평화로운 산속 호수의 아름다운 일몰" 
+                       value="평화로운 산속 호수의 아름다운 일몰">
+            </div>
+            
+            <button onclick="generateImage()" id="generateBtn"
+                    class="w-full py-3 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white font-bold rounded-lg text-lg">
+                🎨 이미지 생성
+            </button>
+            
+            <div id="imageStatus" class="mt-4 text-sm"></div>
+        </div>
+        
+        <!-- 생성된 이미지 -->
+        <div id="imageResult" class="bg-slate-800 p-6 rounded-xl mb-6 hidden">
+            <h2 class="text-xl font-bold mb-4 text-blue-400">📸 생성된 이미지</h2>
+            <div id="imageContainer" class="mb-4"></div>
+            
+            <!-- Remotion 렌더링 -->
+            <div class="border-t border-slate-600 pt-4">
+                <h3 class="text-lg font-bold mb-4 text-orange-400">🎬 Remotion 비디오 렌더링</h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">비디오 길이 (초):</label>
+                        <input type="number" id="videoDuration" value="5" min="1" max="30" 
+                               class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">프레임레이트:</label>
+                        <select id="videoFps" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white">
+                            <option value="24">24 FPS</option>
+                            <option value="30" selected>30 FPS</option>
+                            <option value="60">60 FPS</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">해상도:</label>
+                        <select id="videoResolution" class="w-full bg-slate-700 border border-slate-600 rounded-lg px-3 py-2 text-white">
+                            <option value="1280x720">720p (1280×720)</option>
+                            <option value="1920x1080" selected>1080p (1920×1080)</option>
+                            <option value="2560x1440">1440p (2560×1440)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <button onclick="renderWithRemotion()" id="renderBtn"
+                        class="w-full py-3 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-bold rounded-lg text-lg">
+                    🎬 Remotion으로 비디오 렌더링
+                </button>
+                
+                <div id="renderStatus" class="mt-4 text-sm"></div>
+            </div>
+        </div>
+        
+        <!-- Remotion 서버 상태 -->
+        <div class="bg-slate-900 p-4 rounded-xl text-center">
+            <div id="serverStatus" class="text-sm">🔧 Remotion 서버 상태 확인 중...</div>
+        </div>
+    </div>
+
+    <script>
+        let generatedImageSrc = null;
+        
+        // Remotion 서버 상태 확인
+        async function checkRemotionServer() {
+            try {
+                const response = await fetch('http://localhost:8766/health');
+                const data = await response.json();
+                
+                if (data.ok) {
+                    document.getElementById('serverStatus').innerHTML = 
+                        '<span class="text-green-400">✅ Remotion 서버 연결됨 (localhost:8766)</span>';
+                    return true;
+                } else {
+                    throw new Error('서버 응답 이상');
+                }
+            } catch (error) {
+                document.getElementById('serverStatus').innerHTML = 
+                    '<span class="text-red-400">❌ Remotion 서버 연결 실패 - 터미널에서 "cd remotion && npm start" 실행</span>';
+                return false;
+            }
+        }
+        
+        // 이미지 생성 함수
+        async function generateImage() {
+            const prompt = document.getElementById('imagePrompt').value.trim();
+            const engine = document.querySelector('input[name="engine"]:checked').value;
+            const statusEl = document.getElementById('imageStatus');
+            const btn = document.getElementById('generateBtn');
+            
+            if (!prompt) {
+                alert('이미지 프롬프트를 입력해주세요.');
+                return;
+            }
+            
+            btn.disabled = true;
+            btn.textContent = '🎨 생성 중...';
+            statusEl.innerHTML = '<span class="text-blue-400">이미지 생성 중...</span>';
+            
+            try {
+                let imageUrl;
+                
+                if (engine === 'gemini') {
+                    // Gemini Imagen 사용
+                    const apiKey = document.getElementById('geminiApiKey').value.trim();
+                    if (!apiKey) {
+                        throw new Error('Gemini API 키를 입력해주세요.');
+                    }
+                    
+                    statusEl.innerHTML = '<span class="text-blue-400">🤖 Gemini Imagen 4.0으로 생성 중...</span>';
+                    
+                    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:generateImage?key=' + apiKey, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            prompt: prompt,
+                            generationConfig: {
+                                aspectRatio: "16:9",
+                                sampleCount: 1
+                            }
+                        })
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.error?.message || 'Gemini API 오류');
+                    }
+                    
+                    const data = await response.json();
+                    const imageBase64 = data.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+                    
+                    if (!imageBase64) {
+                        throw new Error('이미지 데이터를 받지 못했습니다.');
+                    }
+                    
+                    imageUrl = `data:image/jpeg;base64,${imageBase64}`;
+                    
+                } else {
+                    // Pollinations 사용
+                    statusEl.innerHTML = '<span class="text-blue-400">🌸 Pollinations로 생성 중...</span>';
+                    
+                    const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=1920&height=1080&model=flux&seed=${Date.now()}`;
+                    
+                    // 이미지를 data URL로 변환
+                    const response = await fetch(pollinationsUrl);
+                    const blob = await response.blob();
+                    imageUrl = await new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onload = () => resolve(reader.result);
+                        reader.readAsDataURL(blob);
+                    });
+                }
+                
+                // 이미지 표시
+                generatedImageSrc = imageUrl;
+                displayImage(imageUrl, prompt);
+                statusEl.innerHTML = '<span class="text-green-400">✅ 이미지 생성 완료!</span>';
+                
+            } catch (error) {
+                console.error('이미지 생성 오류:', error);
+                statusEl.innerHTML = `<span class="text-red-400">❌ 오류: ${error.message}</span>`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🎨 이미지 생성';
+            }
+        }
+        
+        // 이미지 표시 함수
+        function displayImage(imageUrl, prompt) {
+            const container = document.getElementById('imageContainer');
+            const subtitle = document.getElementById('subtitleText').value.trim();
+            
+            container.innerHTML = `
+                <img src="${imageUrl}" alt="Generated Image" class="w-full rounded-lg border border-slate-600 mb-4">
+                <div class="text-xs text-slate-400">
+                    <p><strong>프롬프트:</strong> ${prompt}</p>
+                    <p><strong>자막:</strong> ${subtitle || '(자막 없음)'}</p>
+                </div>
+            `;
+            
+            document.getElementById('imageResult').classList.remove('hidden');
+        }
+        
+        // Remotion 렌더링 함수
+        async function renderWithRemotion() {
+            if (!generatedImageSrc) {
+                alert('먼저 이미지를 생성해주세요.');
+                return;
+            }
+            
+            const subtitle = document.getElementById('subtitleText').value.trim();
+            const duration = parseInt(document.getElementById('videoDuration').value);
+            const fps = parseInt(document.getElementById('videoFps').value);
+            const resolution = document.getElementById('videoResolution').value;
+            const [width, height] = resolution.split('x').map(Number);
+            
+            const statusEl = document.getElementById('renderStatus');
+            const btn = document.getElementById('renderBtn');
+            
+            btn.disabled = true;
+            btn.textContent = '🎬 렌더링 중...';
+            statusEl.innerHTML = '<span class="text-orange-400">Remotion 서버로 렌더링 요청 중...</span>';
+            
+            try {
+                const response = await fetch('http://localhost:8766/render-image', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        imageSrc: generatedImageSrc,
+                        subtitle: subtitle,
+                        duration: duration,
+                        fps: fps,
+                        width: width,
+                        height: height
+                    })
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || `렌더링 실패 (HTTP ${response.status})`);
+                }
+                
+                statusEl.innerHTML = '<span class="text-orange-400">🎬 렌더링 완료! 비디오 다운로드 중...</span>';
+                
+                // 비디오 파일 다운로드
+                const blob = await response.blob();
+                const downloadUrl = URL.createObjectURL(blob);
+                
+                const downloadLink = document.createElement('a');
+                downloadLink.href = downloadUrl;
+                downloadLink.download = `generated_video_${Date.now()}.mp4`;
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+                
+                // URL 정리
+                setTimeout(() => URL.revokeObjectURL(downloadUrl), 5000);
+                
+                statusEl.innerHTML = `
+                    <div class="text-green-400">
+                        ✅ <strong>렌더링 완료!</strong><br>
+                        📊 해상도: ${width}×${height}<br>
+                        🎞️ 프레임레이트: ${fps} FPS<br>
+                        ⏱️ 길이: ${duration}초<br>
+                        💾 파일 크기: ${(blob.size / 1024 / 1024).toFixed(2)} MB
+                    </div>
+                `;
+                
+            } catch (error) {
+                console.error('Remotion 렌더링 오류:', error);
+                statusEl.innerHTML = `<span class="text-red-400">❌ 렌더링 실패: ${error.message}</span>`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🎬 Remotion으로 비디오 렌더링';
+            }
+        }
+        
+        // 페이지 로드 시 초기화
+        window.addEventListener('DOMContentLoaded', () => {
+            checkRemotionServer();
+        });
+    </script>
+</body>
+</html>

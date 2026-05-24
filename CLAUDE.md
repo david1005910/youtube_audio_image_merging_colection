@@ -18,6 +18,13 @@ python3 server.py        # starts at http://localhost:8765
 ```
 The server reads/writes `.env` for key persistence and proxies TranscriptAPI calls to avoid CORS.
 
+### Remotion Subtitle Renderer (optional)
+
+For subtitle burn-in functionality:
+```bash
+cd remotion && npm install && npm start   # starts at http://localhost:8766
+```
+
 ## Architecture
 
 ### `index.html` — the entire frontend (~87 KB, single file)
@@ -50,7 +57,15 @@ Extends `SimpleHTTPRequestHandler`. API endpoints:
 | `GET /api/yt-skills` | List youtube-skills-main skills |
 | `GET /api/yt-skill/<name>` | Return SKILL.md content |
 | `POST /api/proxy/transcriptapi` | Proxy to transcriptapi.com (requires `TRANSCRIPT_API_KEY`) |
+| `POST /api/proxy/gemini` | Proxy Gemini text generation API |
 | `POST /api/proxy/gemini-image` | Proxy to Imagen 4.0 image generation API |
+| `POST /api/proxy/gemini-tts` | Proxy to Gemini TTS API |
+| `POST /api/proxy/grok-video` | Generate video via Grok API |
+| `GET /api/proxy/grok-video/<id>` | Poll Grok video generation status |
+| `POST /api/proxy/grok-video-concat` | Concatenate multiple Grok videos with ffmpeg |
+| `POST /api/proxy/video-audio-merge` | Merge video + audio + subtitles with ffmpeg |
+| `POST /api/proxy/imgbb-upload` | Upload base64 image to imgbb for public URL |
+| `GET /api/proxy/youtube/*` | Proxy YouTube Data API v3 requests |
 
 All other paths are served as static files from the project root.
 
@@ -66,7 +81,15 @@ Express + Remotion 4.0.457. Runs at `http://localhost:8766`. Start with:
 cd remotion && npm install && npm start
 ```
 
-`POST /render` accepts `{ videoSrc, subtitles[], translatedSubtitles[], fps, width, height }` and returns an MP4 with burned-in subtitles. Source files exist (`src/Root.tsx`, `src/SubtitleOverlay.tsx`) but the feature is still in early development.
+`POST /render` accepts `{ videoSrc, subtitles[], translatedSubtitles[], fps, width, height, durationInSeconds }` and returns an MP4 with burned-in subtitles. 
+
+Available endpoints:
+- `POST /render` — Subtitle burn-in 
+- `POST /render-image` — Single image to video
+- `POST /render-slideshow` — Image slideshow to video
+- `GET /health` — Health check
+
+Source files: `src/Root.tsx`, `src/SubtitleOverlay.tsx`, `src/ImageSlide.tsx`
 
 ## API Keys (stored in `.env`)
 
@@ -76,7 +99,8 @@ cd remotion && npm install && npm start
 | `GEMINI_API_KEY` | Gemini AI (comment analysis, script generation, image chat) |
 | `GEMINI_MODEL` | Model name, default `gemini-2.5-flash` |
 | `TRANSCRIPT_API_KEY` | transcriptapi.com (TranscriptAPI chat widget) |
-| `XAI_API_KEY` | Reserved for future X AI integration |
+| `XAI_API_KEY` | X AI integration (Grok video generation) |
+| `IMGBB_API_KEY` | imgbb.com image hosting for public URLs |
 
 ## API Quota
 
@@ -85,3 +109,19 @@ YouTube Data API v3: 10,000 units/day free. One full search costs ~200–300 uni
 ## Key Metrics
 
 **Viral Ratio** = `(views ÷ subscribers) × 100`. The main sort key. ≥200% = verified material, ≥500% = strong viral, ≥1000% = algorithm explosion.
+
+## FFmpeg Requirement
+
+For video concatenation and audio merging features, ffmpeg must be installed:
+```bash
+brew install ffmpeg    # macOS
+apt install ffmpeg     # Linux
+```
+
+## Test Files
+
+Multiple test HTML files exist for specific features:
+- `test-image-generation.html` — Imagen 4.0 and Pollinations integration
+- `test-grok-image-integration.html` — Grok video generation testing
+- `test-remotion-*.html` — Various Remotion video rendering tests
+- `test-video-preview.html` — Video preview functionality

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pollinations 이미지 생성 테스트</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8">Pollinations AI 이미지 생성</h1>
+        
+        <!-- Pollinations 이미지 생성 -->
+        <div class="bg-white p-6 rounded-lg shadow-lg mb-6">
+            <h2 class="text-xl font-semibold mb-4">이미지 생성 (작동 확인됨)</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">프롬프트 (영어로 입력)</label>
+                    <textarea id="prompt" 
+                              class="w-full p-2 border rounded h-24"
+                              placeholder="예: beautiful sunset, mountain landscape">beautiful sunset over mountains with golden clouds</textarea>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">너비</label>
+                        <select id="width" class="w-full p-2 border rounded">
+                            <option value="512">512px</option>
+                            <option value="768">768px</option>
+                            <option value="1024" selected>1024px</option>
+                            <option value="1280">1280px</option>
+                            <option value="1920">1920px</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">높이</label>
+                        <select id="height" class="w-full p-2 border rounded">
+                            <option value="512">512px</option>
+                            <option value="768">768px</option>
+                            <option value="1024" selected>1024px</option>
+                            <option value="1080">1080px</option>
+                            <option value="1280">1280px</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex space-x-4">
+                    <button onclick="generateImage()" 
+                            class="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                        이미지 생성
+                    </button>
+                    <button onclick="generateSimpleImage()" 
+                            class="px-6 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+                        간단한 이미지 생성
+                    </button>
+                </div>
+
+                <div id="status" class="text-sm text-gray-600"></div>
+                <div id="result" class="mt-4"></div>
+            </div>
+        </div>
+
+        <!-- 미리 생성된 예제 -->
+        <div class="bg-white p-6 rounded-lg shadow-lg">
+            <h2 class="text-xl font-semibold mb-4">빠른 테스트 (미리 생성된 URL)</h2>
+            <div class="space-y-4">
+                <button onclick="loadPresetImage('cat')" 
+                        class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 mr-2">
+                    고양이 이미지
+                </button>
+                <button onclick="loadPresetImage('nature')" 
+                        class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 mr-2">
+                    자연 풍경
+                </button>
+                <button onclick="loadPresetImage('city')" 
+                        class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600">
+                    도시 야경
+                </button>
+                <div id="presetResult" class="mt-4"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Pollinations API 실제 작동 방식
+        function generateImage() {
+            const prompt = document.getElementById('prompt').value;
+            const width = document.getElementById('width').value;
+            const height = document.getElementById('height').value;
+            const resultDiv = document.getElementById('result');
+            const statusDiv = document.getElementById('status');
+            
+            if (!prompt) {
+                alert('프롬프트를 입력하세요!');
+                return;
+            }
+            
+            // 상태 표시
+            statusDiv.textContent = '이미지 생성 요청 중...';
+            resultDiv.innerHTML = '<div class="text-blue-500">⏳ 이미지 생성 중... (10-20초 소요)</div>';
+            
+            // Pollinations URL 생성
+            const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&nologo=true`;
+            
+            // 이미지 엘리먼트 생성
+            const img = document.createElement('img');
+            img.className = 'w-full max-w-2xl rounded shadow mt-4';
+            
+            // 로드 성공
+            img.onload = function() {
+                statusDiv.textContent = '✅ 이미지 생성 완료!';
+                resultDiv.innerHTML = `
+                    <div class="space-y-4">
+                        <div class="text-green-500 font-semibold">✅ 이미지 생성 성공!</div>
+                        <img src="${imageUrl}" class="w-full max-w-2xl rounded shadow">
+                        <div class="text-sm text-gray-600">
+                            <p>크기: ${width}x${height}</p>
+                            <p>프롬프트: ${prompt}</p>
+                        </div>
+                        <div class="flex space-x-2">
+                            <a href="${imageUrl}" target="_blank" 
+                               class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                                새 탭에서 열기
+                            </a>
+                            <button onclick="downloadImage('${imageUrl}', '${prompt.substring(0, 20)}')" 
+                                    class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+                                다운로드
+                            </button>
+                        </div>
+                    </div>
+                `;
+            };
+            
+            // 로드 실패
+            img.onerror = function() {
+                statusDiv.textContent = '⚠️ 이미지 로드 중...';
+                // 재시도
+                setTimeout(() => {
+                    img.src = imageUrl + '&retry=' + Date.now();
+                }, 3000);
+            };
+            
+            // 이미지 소스 설정 (생성 시작)
+            img.src = imageUrl;
+            
+            // 타임아웃 후에도 결과 표시
+            setTimeout(() => {
+                if (resultDiv.innerHTML.includes('생성 중')) {
+                    resultDiv.innerHTML = `
+                        <div class="space-y-4">
+                            <div class="text-yellow-500">⏳ 생성 중... (첫 요청은 시간이 걸립니다)</div>
+                            <img src="${imageUrl}" class="w-full max-w-2xl rounded shadow">
+                            <p class="text-sm text-gray-500">이미지가 표시되지 않으면 아래 링크를 클릭하세요:</p>
+                            <a href="${imageUrl}" target="_blank" class="text-blue-500 underline">${imageUrl}</a>
+                        </div>
+                    `;
+                }
+            }, 5000);
+        }
+
+        // 간단한 이미지 생성 (기본 설정)
+        function generateSimpleImage() {
+            const prompt = document.getElementById('prompt').value || 'beautiful landscape';
+            const resultDiv = document.getElementById('result');
+            
+            // 간단한 URL (파라미터 최소화)
+            const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`;
+            
+            resultDiv.innerHTML = `
+                <div class="space-y-4">
+                    <div class="text-blue-500">간단한 URL로 생성 중...</div>
+                    <img src="${imageUrl}" 
+                         class="w-full max-w-2xl rounded shadow"
+                         alt="${prompt}"
+                         onload="this.previousElementSibling.innerHTML='✅ 이미지 로드 완료!'"
+                         onerror="this.previousElementSibling.innerHTML='⚠️ 로딩 중... 잠시 기다려주세요'">
+                    <div class="text-sm text-gray-600">
+                        <a href="${imageUrl}" target="_blank" class="text-blue-500 underline">
+                            직접 열기: ${imageUrl}
+                        </a>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 미리 설정된 이미지
+        function loadPresetImage(type) {
+            const presets = {
+                cat: 'cute cat playing with yarn',
+                nature: 'beautiful mountain landscape sunset',
+                city: 'cyberpunk city at night neon lights'
+            };
+            
+            const prompt = presets[type];
+            const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}`;
+            const resultDiv = document.getElementById('presetResult');
+            
+            resultDiv.innerHTML = `
+                <div class="space-y-4">
+                    <div class="text-blue-500">미리 설정된 이미지 로딩...</div>
+                    <img src="${imageUrl}" 
+                         class="w-full max-w-md rounded shadow"
+                         alt="${prompt}">
+                    <div class="text-sm text-gray-600">프롬프트: ${prompt}</div>
+                </div>
+            `;
+        }
+
+        // 이미지 다운로드
+        function downloadImage(url, filename) {
+            fetch(url)
+                .then(resp => resp.blob())
+                .then(blob => {
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(blob);
+                    a.download = filename + '.jpg';
+                    a.click();
+                })
+                .catch(err => {
+                    // CORS 에러시 새 탭에서 열기
+                    window.open(url, '_blank');
+                });
+        }
+
+        // 페이지 로드시 예제 표시
+        window.onload = function() {
+            console.log('Pollinations API 테스트 준비 완료');
+            console.log('API 문서: https://pollinations.ai/');
+        };
+    </script>
+</body>
+</html>

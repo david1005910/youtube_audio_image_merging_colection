@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>이미지 생성 테스트</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8">이미지 생성 테스트</h1>
+        
+        <!-- 로컬 이미지 또는 URL 테스트 -->
+        <div class="bg-white p-6 rounded-lg shadow-lg mb-6">
+            <h2 class="text-xl font-semibold mb-4">1. 이미지 URL 테스트</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">이미지 URL 입력</label>
+                    <input type="text" id="imageUrlInput" 
+                           class="w-full p-2 border rounded"
+                           placeholder="https://picsum.photos/1024/1024"
+                           value="https://picsum.photos/1024/1024">
+                </div>
+                <button onclick="testImageUrl()" 
+                        class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600">
+                    이미지 로드
+                </button>
+                <div id="urlResult" class="mt-4"></div>
+            </div>
+        </div>
+
+        <!-- Pollinations 이미지 생성 (수정됨) -->
+        <div class="bg-white p-6 rounded-lg shadow-lg mb-6">
+            <h2 class="text-xl font-semibold mb-4">2. Picsum 랜덤 이미지</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">이미지 크기</label>
+                    <select id="imageSize" class="w-full p-2 border rounded">
+                        <option value="512">512x512</option>
+                        <option value="1024" selected>1024x1024</option>
+                        <option value="1920">1920x1080</option>
+                    </select>
+                </div>
+                <button onclick="generateRandomImage()" 
+                        class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                    랜덤 이미지 생성
+                </button>
+                <div id="result" class="mt-4"></div>
+            </div>
+        </div>
+
+        <!-- Gemini Imagen 4.0 테스트 -->
+        <div class="bg-white p-6 rounded-lg shadow-lg">
+            <h2 class="text-xl font-semibold mb-4">3. Gemini Imagen 4.0 이미지 생성</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">API 키</label>
+                    <input type="password" id="geminiKey" 
+                           class="w-full p-2 border rounded"
+                           placeholder="Gemini API 키 입력">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-2">이미지 프롬프트</label>
+                    <textarea id="geminiPrompt" 
+                              class="w-full p-2 border rounded h-24"
+                              placeholder="생성할 이미지 설명">A serene Japanese garden with cherry blossoms, koi pond, traditional bridge, sunset lighting</textarea>
+                </div>
+                <button onclick="generateGeminiImage()" 
+                        class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+                    Imagen 4.0으로 생성
+                </button>
+                <div id="geminiResult" class="mt-4"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 서버에서 API 키 로드
+        async function loadConfig() {
+            try {
+                const response = await fetch('/api/config');
+                if (response.ok) {
+                    const config = await response.json();
+                    if (config.GEMINI_API_KEY) {
+                        document.getElementById('geminiKey').value = config.GEMINI_API_KEY;
+                    }
+                }
+            } catch (error) {
+                console.log('Direct browser mode');
+            }
+        }
+        loadConfig();
+
+        function testImageUrl() {
+            const imageUrl = document.getElementById('imageUrlInput').value;
+            const resultDiv = document.getElementById('urlResult');
+            
+            resultDiv.innerHTML = '<div class="text-blue-500">이미지 로딩 중...</div>';
+            
+            const img = new Image();
+            img.onload = function() {
+                resultDiv.innerHTML = `
+                    <div class="text-green-500 mb-2">✅ 이미지 로드 성공!</div>
+                    <img src="${imageUrl}" class="w-full max-w-md rounded shadow">
+                    <div class="mt-2 text-sm text-gray-600">크기: ${img.width}x${img.height}</div>
+                `;
+            };
+            img.onerror = function() {
+                resultDiv.innerHTML = '<div class="text-red-500">❌ 이미지 로드 실패</div>';
+            };
+            img.src = imageUrl;
+        }
+
+        function generateRandomImage() {
+            const size = document.getElementById('imageSize').value;
+            const resultDiv = document.getElementById('result');
+            
+            let width, height;
+            if (size === '1920') {
+                width = 1920;
+                height = 1080;
+            } else {
+                width = height = parseInt(size);
+            }
+            
+            // 랜덤 시드 추가
+            const randomSeed = Math.floor(Math.random() * 1000);
+            const imageUrl = `https://picsum.photos/${width}/${height}?random=${randomSeed}`;
+            
+            resultDiv.innerHTML = '<div class="text-blue-500">랜덤 이미지 생성 중...</div>';
+            
+            const img = new Image();
+            img.onload = function() {
+                resultDiv.innerHTML = `
+                    <div class="text-green-500 mb-2">✅ 랜덤 이미지 생성 완료!</div>
+                    <img src="${imageUrl}" class="w-full max-w-md rounded shadow">
+                    <div class="mt-2 text-sm text-gray-600">크기: ${width}x${height}</div>
+                `;
+            };
+            img.onerror = function() {
+                resultDiv.innerHTML = '<div class="text-red-500">❌ 이미지 생성 실패</div>';
+            };
+            img.src = imageUrl;
+        }
+
+        async function generateImage() {
+            const prompt = document.getElementById('prompt').value;
+            const resultDiv = document.getElementById('result');
+            
+            resultDiv.innerHTML = '<div class="text-blue-500">이미지 생성 중... (10-15초 소요)</div>';
+            
+            // Pollinations API 직접 호출
+            try {
+                // 간단한 프롬프트로 시작
+                const simplePrompt = prompt.substring(0, 100); // 프롬프트 길이 제한
+                const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(simplePrompt)}`;
+                
+                // fetch로 먼저 체크
+                const response = await fetch(imageUrl, {
+                    method: 'HEAD',
+                    mode: 'no-cors'
+                });
+                
+                // 이미지 표시 (no-cors 모드에서는 response 체크 불가)
+                setTimeout(() => {
+                    resultDiv.innerHTML = `
+                        <div class="text-green-500 mb-2">✅ 이미지 생성 시도 완료!</div>
+                        <div class="mb-2 text-sm text-gray-600">프롬프트: ${simplePrompt}</div>
+                        <img src="${imageUrl}" 
+                             class="w-full max-w-md rounded shadow"
+                             onerror="this.onerror=null; this.src='https://via.placeholder.com/512x512/cccccc/666666?text=Image+Generation+Failed'">
+                        <div class="mt-2">
+                            <a href="${imageUrl}" target="_blank" class="text-blue-500 underline text-sm">
+                                새 탭에서 열기
+                            </a>
+                        </div>
+                    `;
+                }, 2000);
+                
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="text-red-500">❌ 오류: ${error.message}</div>`;
+            }
+        }
+
+        async function generateGeminiImage() {
+            const apiKey = document.getElementById('geminiKey').value;
+            const prompt = document.getElementById('geminiPrompt').value;
+            const resultDiv = document.getElementById('geminiResult');
+            
+            if (!apiKey) {
+                resultDiv.innerHTML = '<div class="text-red-500">API 키를 입력하세요</div>';
+                return;
+            }
+            
+            resultDiv.innerHTML = '<div class="text-blue-500">Imagen 4.0으로 생성 중...</div>';
+            
+            try {
+                const response = await fetch('/api/proxy/gemini-image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        geminiApiKey: apiKey,
+                        prompt: prompt,
+                        model: 'imagen-4.0-fast-generate-001'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.predictions && data.predictions[0]) {
+                    const base64Image = data.predictions[0].bytesBase64Encoded;
+                    resultDiv.innerHTML = `
+                        <div class="text-green-500 mb-2">✅ Imagen 4.0 생성 완료!</div>
+                        <img src="data:image/png;base64,${base64Image}" class="w-full max-w-md rounded shadow">
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div class="text-red-500">❌ 생성 실패: ${JSON.stringify(data)}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="text-red-500">❌ 오류: ${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

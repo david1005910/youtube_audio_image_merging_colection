@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pollinations 이미지 생성 (개선 버전)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-8">
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-3xl font-bold mb-8">Pollinations AI 이미지 생성 (프록시 버전)</h1>
+        
+        <!-- 프록시를 통한 이미지 생성 -->
+        <div class="bg-white p-6 rounded-lg shadow-lg mb-6">
+            <h2 class="text-xl font-semibold mb-4">🎨 AI 이미지 생성</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-2">프롬프트 (영어로 입력)</label>
+                    <textarea id="prompt" 
+                              class="w-full p-2 border rounded h-24"
+                              placeholder="예: beautiful sunset, mountain landscape">beautiful sunset over mountains with golden clouds, ultra realistic, 4k quality</textarea>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">너비</label>
+                        <select id="width" class="w-full p-2 border rounded">
+                            <option value="512">512px</option>
+                            <option value="768">768px</option>
+                            <option value="1024" selected>1024px</option>
+                            <option value="1280">1280px</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">높이</label>
+                        <select id="height" class="w-full p-2 border rounded">
+                            <option value="512">512px</option>
+                            <option value="768">768px</option>
+                            <option value="1024" selected>1024px</option>
+                            <option value="1080">1080px</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="flex space-x-4">
+                    <button onclick="generateWithProxy()" 
+                            class="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-semibold">
+                        🚀 프록시로 생성 (추천)
+                    </button>
+                    <button onclick="generateDirect()" 
+                            class="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 font-semibold">
+                        🌐 직접 생성
+                    </button>
+                </div>
+
+                <!-- 상태 표시 -->
+                <div id="status" class="hidden">
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div class="flex items-center">
+                            <svg class="animate-spin h-5 w-5 mr-3 text-blue-500" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span id="statusText" class="text-blue-700">이미지 생성 중...</span>
+                        </div>
+                        <div class="mt-2 text-sm text-blue-600">
+                            첫 생성은 10-20초 정도 소요됩니다. 잠시만 기다려주세요...
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 결과 표시 영역 -->
+                <div id="result" class="mt-4"></div>
+            </div>
+        </div>
+
+        <!-- 빠른 예제 -->
+        <div class="bg-white p-6 rounded-lg shadow-lg">
+            <h2 class="text-xl font-semibold mb-4">⚡ 빠른 예제</h2>
+            <div class="grid grid-cols-3 gap-4">
+                <button onclick="quickGenerate('cute cat with blue eyes, professional photography')" 
+                        class="p-4 bg-purple-100 hover:bg-purple-200 rounded-lg text-center">
+                    <div class="text-2xl mb-2">🐱</div>
+                    <div class="text-sm">귀여운 고양이</div>
+                </button>
+                <button onclick="quickGenerate('futuristic city skyline at night, cyberpunk style, neon lights')" 
+                        class="p-4 bg-purple-100 hover:bg-purple-200 rounded-lg text-center">
+                    <div class="text-2xl mb-2">🌃</div>
+                    <div class="text-sm">사이버펑크 도시</div>
+                </button>
+                <button onclick="quickGenerate('beautiful japanese garden with cherry blossoms, serene atmosphere')" 
+                        class="p-4 bg-purple-100 hover:bg-purple-200 rounded-lg text-center">
+                    <div class="text-2xl mb-2">🌸</div>
+                    <div class="text-sm">벚꽃 정원</div>
+                </button>
+                <button onclick="quickGenerate('majestic dragon flying over mountains, fantasy art style')" 
+                        class="p-4 bg-purple-100 hover:bg-purple-200 rounded-lg text-center">
+                    <div class="text-2xl mb-2">🐉</div>
+                    <div class="text-sm">판타지 드래곤</div>
+                </button>
+                <button onclick="quickGenerate('astronaut exploring alien planet, sci-fi concept art')" 
+                        class="p-4 bg-purple-100 hover:bg-purple-200 rounded-lg text-center">
+                    <div class="text-2xl mb-2">🚀</div>
+                    <div class="text-sm">우주 탐험</div>
+                </button>
+                <button onclick="quickGenerate('delicious food platter, restaurant quality, appetizing')" 
+                        class="p-4 bg-purple-100 hover:bg-purple-200 rounded-lg text-center">
+                    <div class="text-2xl mb-2">🍱</div>
+                    <div class="text-sm">맛있는 음식</div>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentGenerationId = 0;
+
+        // 프록시를 통한 생성 (CORS 우회)
+        async function generateWithProxy() {
+            const prompt = document.getElementById('prompt').value;
+            const width = document.getElementById('width').value;
+            const height = document.getElementById('height').value;
+            
+            if (!prompt) {
+                alert('프롬프트를 입력하세요!');
+                return;
+            }
+            
+            const generationId = ++currentGenerationId;
+            showStatus(true);
+            updateStatus('서버에 요청 중...');
+            
+            try {
+                const response = await fetch('/api/proxy/pollinations', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        prompt: prompt,
+                        width: parseInt(width),
+                        height: parseInt(height),
+                        nologo: true
+                    })
+                });
+                
+                if (generationId !== currentGenerationId) return; // 새 요청이 있으면 무시
+                
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const imageUrl = URL.createObjectURL(blob);
+                    
+                    showStatus(false);
+                    displayResult(imageUrl, prompt, width, height, true);
+                } else {
+                    throw new Error(`서버 오류: ${response.status}`);
+                }
+            } catch (error) {
+                if (generationId === currentGenerationId) {
+                    showStatus(false);
+                    displayError(error.message);
+                }
+            }
+        }
+
+        // 직접 생성 (브라우저에서 바로)
+        function generateDirect() {
+            const prompt = document.getElementById('prompt').value;
+            const width = document.getElementById('width').value;
+            const height = document.getElementById('height').value;
+            
+            if (!prompt) {
+                alert('프롬프트를 입력하세요!');
+                return;
+            }
+            
+            const generationId = ++currentGenerationId;
+            showStatus(true);
+            updateStatus('Pollinations API 직접 호출 중...');
+            
+            // URL 생성
+            const imageUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${width}&height=${height}&nologo=true&seed=${Date.now()}`;
+            
+            // 이미지 로드
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            
+            img.onload = function() {
+                if (generationId === currentGenerationId) {
+                    showStatus(false);
+                    displayResult(imageUrl, prompt, width, height, false);
+                }
+            };
+            
+            img.onerror = function() {
+                if (generationId === currentGenerationId) {
+                    // 에러시 iframe으로 시도
+                    showStatus(false);
+                    displayResultWithIframe(imageUrl, prompt, width, height);
+                }
+            };
+            
+            // 타임아웃 설정
+            setTimeout(() => {
+                if (generationId === currentGenerationId) {
+                    updateStatus('생성 중... 곧 완료됩니다...');
+                }
+            }, 5000);
+            
+            img.src = imageUrl;
+        }
+
+        // 빠른 생성
+        function quickGenerate(prompt) {
+            document.getElementById('prompt').value = prompt;
+            generateWithProxy();
+        }
+
+        // 상태 표시
+        function showStatus(show) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.classList.toggle('hidden', !show);
+        }
+
+        function updateStatus(text) {
+            document.getElementById('statusText').textContent = text;
+        }
+
+        // 결과 표시
+        function displayResult(imageUrl, prompt, width, height, isBlob) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `
+                <div class="border border-gray-200 rounded-lg overflow-hidden">
+                    <img src="${imageUrl}" 
+                         alt="${prompt}"
+                         class="w-full"
+                         style="max-height: 600px; object-fit: contain;">
+                    <div class="bg-gray-50 p-4">
+                        <div class="text-sm text-gray-600 space-y-1">
+                            <p><strong>프롬프트:</strong> ${prompt}</p>
+                            <p><strong>크기:</strong> ${width}x${height}</p>
+                            <p><strong>생성 시간:</strong> ${new Date().toLocaleTimeString()}</p>
+                        </div>
+                        <div class="mt-3 flex gap-2">
+                            ${isBlob ? `
+                                <button onclick="downloadBlob('${imageUrl}', '${prompt.substring(0, 20)}')" 
+                                        class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                                    💾 다운로드
+                                </button>
+                            ` : `
+                                <a href="${imageUrl}" target="_blank" 
+                                   class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 inline-block">
+                                    🔗 새 탭에서 열기
+                                </a>
+                            `}
+                            <button onclick="copyPrompt('${prompt.replace(/'/g, "\\'")}')" 
+                                    class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                                📋 프롬프트 복사
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        // iframe으로 표시 (CORS 우회)
+        function displayResultWithIframe(imageUrl, prompt, width, height) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `
+                <div class="border border-yellow-200 bg-yellow-50 rounded-lg p-4">
+                    <p class="text-yellow-700 mb-2">⚠️ CORS 제한으로 인해 iframe으로 표시합니다.</p>
+                    <iframe src="${imageUrl}" 
+                            width="100%" 
+                            height="600" 
+                            frameborder="0"
+                            class="rounded border border-gray-300">
+                    </iframe>
+                    <div class="mt-3">
+                        <a href="${imageUrl}" target="_blank" 
+                           class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 inline-block">
+                            🔗 전체 화면으로 보기
+                        </a>
+                    </div>
+                </div>
+            `;
+        }
+
+        // 에러 표시
+        function displayError(message) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <p class="text-red-700">❌ 오류 발생: ${message}</p>
+                    <p class="text-red-600 text-sm mt-2">프록시 서버가 실행 중인지 확인하세요.</p>
+                </div>
+            `;
+        }
+
+        // Blob 다운로드
+        function downloadBlob(blobUrl, filename) {
+            const a = document.createElement('a');
+            a.href = blobUrl;
+            a.download = `${filename}_${Date.now()}.jpg`;
+            a.click();
+        }
+
+        // 프롬프트 복사
+        function copyPrompt(prompt) {
+            navigator.clipboard.writeText(prompt).then(() => {
+                alert('프롬프트가 복사되었습니다!');
+            });
+        }
+    </script>
+</body>
+</html>
