@@ -1,5 +1,25 @@
+# Environment and Keys
 .env
-remotion/node_modules/
+.env.*
+
+# Python Virtual Environments & Cache
+.venv/
+venv/
+ENV/
 __pycache__/
 *.pyc
-*.DS_Store
+*.pyo
+*.pyd
+
+# Node.js
+node_modules/
+remotion/node_modules/
+
+# Output and Temporary Data
+outputs/
+uploads/
+*.log
+.DS_Store
+
+# Merged reference subfolder
+audio_image_merging-main/

@@ -7,6 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="wavestudio.css?v=3.5">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>tailwind.config = { darkMode: 'class' }</script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -308,6 +309,18 @@
     #ttsBody::-webkit-scrollbar-track { background: #0f172a; }
     #ttsBody::-webkit-scrollbar-thumb { background: #475569; border-radius: 3px; }
 
+    /* ── WaveStudio Pro 위젯 ── */
+    #waveStudioToggleBtn {
+      position: fixed; top: 24px; right: 486px; z-index: 1000;
+      width: 52px; height: 52px; border-radius: 50%;
+      background: linear-gradient(135deg, #00f2fe, #7928ca);
+      border: none; cursor: pointer; font-size: 22px;
+      box-shadow: 0 4px 20px rgba(0, 242, 254, 0.5);
+      transition: transform 0.2s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    #waveStudioToggleBtn:hover { transform: scale(1.08); }
+
     /* ── 경량 Vrew 위젯 ── */
     #vrewToggle {
       position: fixed; top: 24px; right: 354px; z-index: 1000;
@@ -598,9 +611,15 @@
   </div>
 </div>
 
-<script src="app.js?v=20260517e" defer>
+<script src="app.js?v=20260911_style" defer>
 </script>
 <script src="video-converter.js" defer>
+</script>
+<script src="wavestudio-remotion.js?v=3.5" defer>
+</script>
+<script src="wavestudio-scene.js?v=3.5" defer>
+</script>
+<script src="wavestudio-youtube.js?v=3.5" defer>
 </script>
 
 <!-- ── YouTube Creator AI 채팅 위젯 ── -->
@@ -1306,6 +1325,470 @@
 <button id="ttsToggle" title="나레이션 음성 생성 (Gemini TTS)">🎙️</button>
 
 <button id="vrewToggle" title="경량 Vrew — 자막 편집 &amp; 렌더링">✂️</button>
+
+<button id="waveStudioToggleBtn" title="WaveStudio Pro — 비디오 &amp; 타임라인 스튜디오" onclick="openWaveStudioModal()">🎬</button>
+
+<!-- ═══════════════════════════════════════════════════════════════════
+     WaveStudio Pro — 통합 비디오 & 타임라인 스튜디오 모달
+     ═══════════════════════════════════════════════════════════════════ -->
+<div id="waveStudioModal" class="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center hidden p-3"
+     onclick="if(event.target===this) closeWaveStudioModal()">
+  <div class="ws-container">
+    <!-- Studio Header -->
+    <div class="flex items-center justify-between px-6 py-3.5 bg-slate-900/90 border-b border-slate-700/80 flex-shrink-0">
+      <div class="flex items-center gap-3">
+        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-purple-600 flex items-center justify-center font-bold text-black text-sm shadow-md">
+          🎬
+        </div>
+        <div>
+          <h2 class="text-sm font-extrabold text-white flex items-center gap-2">
+            WaveStudio <span class="px-2 py-0.5 text-[10px] bg-cyan-900/50 text-cyan-300 border border-cyan-500/40 rounded-full font-bold">Pro Multi-Track</span>
+          </h2>
+          <p class="text-[11px] text-slate-400">이미지 편집 후단 비디오 합성 · Remotion 타임라인 · 씬 자막 번인 · Edge-TTS 나레이션</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="flex items-center gap-2 px-3 py-1 bg-emerald-950/60 border border-emerald-500/30 rounded-full text-xs text-emerald-400 font-semibold">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          FFmpeg 1080p Ready
+        </div>
+        <button onclick="closeWaveStudioModal()" class="text-slate-400 hover:text-white text-xl leading-none px-2 py-1">✕</button>
+      </div>
+    </div>
+
+    <!-- Studio Navigation Tabs -->
+    <div class="ws-studio-tabs">
+      <button type="button" class="ws-tab-btn active" id="wsTabRemotion" onclick="switchWaveStudioTab('remotion')">
+        <span>🎬 Remotion 멀티트랙 스튜디오 (Timeline Editor)</span>
+      </button>
+      <button type="button" class="ws-tab-btn" id="wsTabScene" onclick="switchWaveStudioTab('scene')">
+        <span>📝 씬 &amp; 나레이션 자막 스튜디오 (Multi-Scene Subtitles)</span>
+      </button>
+      <button type="button" class="ws-tab-btn" id="wsTabClassic" onclick="switchWaveStudioTab('classic')">
+        <span>⚡ 클래식 비디오 모드 (Waveform &amp; Overlay)</span>
+      </button>
+      <button type="button" class="ws-tab-btn" id="wsTabYoutube" onclick="switchWaveStudioTab('youtube')">
+        <span>🎙️ 외국어 동영상 충실 번역 &amp; 맞춤 나레이션 (Audio Overview)</span>
+        <span class="ws-tab-highlight-badge">Edge-TTS</span>
+      </button>
+      <button type="button" class="ws-tab-btn" id="wsTabLibrary" onclick="switchWaveStudioTab('library')">
+        <span>📁 완성 비디오 보관함 (Library)</span>
+      </button>
+    </div>
+
+    <!-- Studio Main Views -->
+    <div class="ws-view-container">
+
+      <!-- ── MODE 1: Remotion Multi-Track Timeline Studio ── -->
+      <div id="wsViewRemotion" class="remotion-studio-view">
+        <!-- Top Row: Canvas & Inspector -->
+        <div class="remotion-top-row">
+          <!-- Canvas Player Panel -->
+          <div class="remotion-player-panel">
+            <div class="ws-panel-header">
+              <div class="ws-panel-title">
+                <span class="text-cyan-400">▶</span>
+                <span>1080p 실시간 캔버스 프리뷰 (Remotion Player)</span>
+              </div>
+              <span class="text-[11px] text-slate-500 font-mono">16:9 Full HD (1920×1080)</span>
+            </div>
+
+            <div class="remotion-canvas-wrapper">
+              <canvas id="remotionCanvas" width="1920" height="1080"></canvas>
+            </div>
+
+            <!-- Transport Controls -->
+            <div class="remotion-transport-bar">
+              <div class="transport-playback-btns">
+                <button type="button" class="btn-transport" id="remBtnStop" title="처음으로 / 정지">⏹</button>
+                <button type="button" class="btn-transport-play" id="remBtnPlay" title="재생 / 일시정지 (스페이스바)">▶</button>
+                <span class="remotion-timecode" id="remTimecode">0:00.0 / 0:15.0</span>
+              </div>
+              <div class="transport-zoom-ctrl">
+                <span>🔍 줌</span>
+                <input type="range" id="remZoomSlider" min="15" max="80" value="35" step="1">
+              </div>
+            </div>
+          </div>
+
+          <!-- Inspector Panel -->
+          <div class="remotion-inspector-panel">
+            <div class="ws-panel-header">
+              <div class="ws-panel-title">
+                <span class="text-purple-400">⚙️</span>
+                <span>클립 인스펙터 (Inspector)</span>
+              </div>
+              <span id="remInspClipType" class="text-[11px] text-cyan-300 font-semibold">선택 없음</span>
+            </div>
+
+            <div id="remInspectorEmpty" class="inspector-empty">
+              <p class="text-2xl mb-2">👆</p>
+              <p class="text-xs text-slate-400 font-semibold">타임라인에서 클립을 클릭하면</p>
+              <p class="text-[11px] text-slate-500">시작 시간, 지속 시간, 자막 및 볼륨을 조절할 수 있습니다.</p>
+            </div>
+
+            <div id="remInspectorContent" class="hidden space-y-3">
+              <div class="grid grid-cols-2 gap-2">
+                <div class="inspector-form-group">
+                  <label class="inspector-label">시작 시간 (초)</label>
+                  <input type="number" step="0.1" id="remInspStart" class="inspector-input" value="0.0">
+                </div>
+                <div class="inspector-form-group">
+                  <label class="inspector-label">지속 시간 (초)</label>
+                  <input type="number" step="0.1" id="remInspDuration" class="inspector-input" value="3.0">
+                </div>
+              </div>
+
+              <!-- Subtitle Section -->
+              <div id="remInspSubSection" class="hidden space-y-2 border-t border-slate-700/60 pt-2">
+                <div class="inspector-form-group">
+                  <label class="inspector-label text-yellow-400">자막 텍스트</label>
+                  <textarea id="remInspSubText" rows="3" class="inspector-textarea resize-none"></textarea>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <div class="inspector-form-group">
+                    <label class="inspector-label">글꼴 크기 (px)</label>
+                    <input type="number" id="remInspSubSize" class="inspector-input" value="32" min="16" max="72">
+                  </div>
+                  <div class="inspector-form-group">
+                    <label class="inspector-label">글꼴 색상</label>
+                    <input type="color" id="remInspSubColor" class="inspector-input h-9 p-1" value="#ffffff">
+                  </div>
+                </div>
+                <div class="grid grid-cols-2 gap-2">
+                  <div class="inspector-form-group">
+                    <label class="inspector-label">배경 스타일</label>
+                    <select id="remInspSubBg" class="inspector-select">
+                      <option value="box">반투명 박스 (Box)</option>
+                      <option value="shadow">외곽선 그림자 (Shadow)</option>
+                    </select>
+                  </div>
+                  <div class="inspector-form-group">
+                    <label class="inspector-label">세로 위치</label>
+                    <select id="remInspSubPos" class="inspector-select">
+                      <option value="bottom">하단 (Bottom)</option>
+                      <option value="center">중앙 (Center)</option>
+                      <option value="top">상단 (Top)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Audio Section -->
+              <div id="remInspAudioSection" class="hidden space-y-2 border-t border-slate-700/60 pt-2">
+                <div class="inspector-form-group">
+                  <div class="flex justify-between items-center">
+                    <label class="inspector-label text-purple-400">오디오 볼륨</label>
+                    <span id="remInspAudioVolVal" class="text-xs text-purple-300 font-mono">100%</span>
+                  </div>
+                  <input type="range" id="remInspAudioVol" min="0" max="2" step="0.05" value="1.0" class="w-full accent-purple-500">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom Row: Timeline Tracks -->
+        <div class="remotion-timeline-panel">
+          <div class="timeline-toolbar">
+            <div class="timeline-quick-actions">
+              <input type="file" id="remInputAddImage" accept="image/*,video/*" multiple class="hidden">
+              <button type="button" class="btn-tl-tool" id="remBtnAddImage">🖼️ + 미디어 추가</button>
+              <input type="file" id="remInputAddAudio" accept="audio/*" multiple class="hidden">
+              <button type="button" class="btn-tl-tool" id="remBtnAddAudio">🎵 + 오디오 추가</button>
+              <button type="button" class="btn-tl-tool" id="remBtnAddSubtitle">💬 + 자막 추가</button>
+              <span class="w-[1px] h-6 bg-slate-700 mx-1"></span>
+              <button type="button" class="btn-tl-tool text-amber-300 border-amber-500/30" id="remBtnSplit">✂️ 분할 (Split)</button>
+              <button type="button" class="btn-tl-tool text-red-400 border-red-500/30" id="remBtnDeleteClip">🗑 삭제</button>
+            </div>
+            <div class="flex items-center gap-2">
+              <button type="button" class="btn-tl-tool text-xs" id="remBtnExportSrt">📄 SRT 내보내기</button>
+              <button type="button" class="btn-tl-tool text-xs" id="remBtnExportTxt">📋 대본 TXT</button>
+              <button type="button" class="btn-tl-tool btn-tl-export px-4 py-1.5" id="remBtnExport">🎬 1080p MP4 렌더링</button>
+            </div>
+          </div>
+
+          <!-- Tracks Container -->
+          <div class="remotion-tracks-wrapper" id="remTracksArea">
+            <div class="track-headers-column">
+              <div class="track-header-cell ruler-header">타임라인</div>
+              <div class="track-header-cell visual-hdr">🖼️ 비주얼 트랙</div>
+              <div class="track-header-cell audio-hdr">🎙️ 오디오 트랙</div>
+              <div class="track-header-cell sub-hdr">💬 자막 트랙</div>
+            </div>
+            <div class="track-lanes-scroll-area">
+              <div class="timeline-ruler-bar" id="remTimelineRuler"></div>
+              <div class="timeline-playhead-line" id="remPlayhead">
+                <div class="timeline-playhead-head"></div>
+              </div>
+              <div class="track-lane-row" id="remTrackVisual"></div>
+              <div class="track-lane-row" id="remTrackAudio"></div>
+              <div class="track-lane-row" id="remTrackSubtitle"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── MODE 2: Multi-Scene Subtitles Studio ── -->
+      <div id="wsViewScene" class="scene-studio-view hidden">
+        <div class="space-y-4">
+          <!-- Audio & Script Upload -->
+          <div class="p-4 bg-slate-900/80 border border-slate-700/80 rounded-2xl space-y-3">
+            <div class="flex items-center justify-between flex-wrap gap-2">
+              <span class="text-xs font-bold text-cyan-300">① 나레이션 오디오 &amp; 대본 배분</span>
+              <div class="flex gap-2">
+                <button type="button" id="wsBtnDistributeSubs" class="px-3 py-1 bg-indigo-700 hover:bg-indigo-600 text-white rounded-lg text-xs font-bold transition">
+                  📄 대본 문장별 자동 배분
+                </button>
+                <button type="button" id="wsBtnAutoBalance" class="px-3 py-1 bg-cyan-700 hover:bg-cyan-600 text-white rounded-lg text-xs font-bold transition">
+                  ⏱️ 씬 지속 시간 균등 배분
+                </button>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-400 mb-1">나레이션 오디오 파일</label>
+                <input type="file" id="wsSceneAudioInput" accept="audio/*" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-300">
+                <div id="wsSceneAudioCard" class="hidden mt-2 p-2 bg-emerald-950/60 border border-emerald-500/40 rounded-lg text-xs text-emerald-300 font-semibold flex items-center justify-between">
+                  <span id="wsSceneAudioName">오디오 로드됨</span>
+                  <span>✅</span>
+                </div>
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-400 mb-1">전체 나레이션 대본 (.txt / 대본 붙여넣기)</label>
+                <textarea id="wsNarrationText" rows="3" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-300 resize-none"
+                  placeholder="대본 텍스트를 입력하면 마침표와 줄바꿈을 기준으로 씬에 자동 배분됩니다…"></textarea>
+              </div>
+            </div>
+          </div>
+
+          <!-- Scene Grid -->
+          <div class="p-4 bg-slate-900/80 border border-slate-700/80 rounded-2xl space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-slate-200">② 장면(Scene)별 이미지 및 개별 자막</span>
+              <div class="flex gap-2">
+                <input type="file" id="wsMultiSceneInput" accept="image/*,video/*" multiple class="hidden">
+                <button type="button" id="wsBtnAddScene" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-cyan-500/40 rounded-lg text-xs font-bold transition">
+                  + 씬 추가
+                </button>
+              </div>
+            </div>
+            <div id="wsScenesContainer" class="scene-grid-list"></div>
+          </div>
+        </div>
+
+        <!-- Style & Render Panel -->
+        <div class="p-4 bg-slate-900/80 border border-slate-700/80 rounded-2xl flex flex-col justify-between space-y-4">
+          <div class="space-y-3">
+            <h3 class="text-xs font-bold text-cyan-300 border-b border-slate-700 pb-2">③ 자막 스타일 설정</h3>
+            <div>
+              <label class="text-[11px] font-semibold text-slate-400">자막 크기 (px)</label>
+              <input type="number" id="wsSubFontSize" value="32" min="16" max="64" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-slate-200 mt-1">
+            </div>
+            <div>
+              <label class="text-[11px] font-semibold text-slate-400">자막 색상</label>
+              <input type="color" id="wsSubFontColor" value="#ffffff" class="w-full h-9 bg-slate-950 border border-slate-700 rounded p-1 mt-1">
+            </div>
+            <div>
+              <label class="text-[11px] font-semibold text-slate-400">배경 박스 / 그림자</label>
+              <select id="wsSubBgStyle" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-slate-200 mt-1">
+                <option value="box">반투명 검정 박스 (Box)</option>
+                <option value="shadow">외곽선 그림자 (Shadow)</option>
+              </select>
+            </div>
+            <div>
+              <label class="text-[11px] font-semibold text-slate-400">자막 위치</label>
+              <select id="wsSubPosition" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-slate-200 mt-1">
+                <option value="bottom">하단 (Bottom)</option>
+                <option value="center">중앙 (Center)</option>
+                <option value="top">상단 (Top)</option>
+              </select>
+            </div>
+          </div>
+
+          <button type="button" id="wsBtnRenderScenes" class="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-extrabold text-sm rounded-xl transition shadow-lg shadow-cyan-500/20">
+            🎬 씬 &amp; 자막 1080p 렌더링
+          </button>
+        </div>
+      </div>
+
+      <!-- ── MODE 3: Classic Waveform & Overlay Studio ── -->
+      <div id="wsViewClassic" class="hidden p-4 bg-slate-900/80 border border-slate-700/80 rounded-2xl space-y-4">
+        <h3 class="text-xs font-bold text-cyan-300">⚡ 클래식 오디오 파형 합성 (Waveform &amp; Overlay)</h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <label class="p-3 bg-slate-950 border border-slate-700 rounded-xl flex items-center gap-3 cursor-pointer">
+            <input type="radio" name="wsClassicMode" value="waveform_overlay" checked class="accent-cyan-400">
+            <div>
+              <p class="text-xs font-bold text-white">웨이브 오버레이</p>
+              <p class="text-[10px] text-slate-400">배경 이미지 위에 반투명 오디오 파형 합성</p>
+            </div>
+          </label>
+          <label class="p-3 bg-slate-950 border border-slate-700 rounded-xl flex items-center gap-3 cursor-pointer">
+            <input type="radio" name="wsClassicMode" value="waveform" class="accent-cyan-400">
+            <div>
+              <p class="text-xs font-bold text-white">단독 파형 비디오</p>
+              <p class="text-[10px] text-slate-400">오디오 신호 기반 비주얼라이저 영상</p>
+            </div>
+          </label>
+          <label class="p-3 bg-slate-950 border border-slate-700 rounded-xl flex items-center gap-3 cursor-pointer">
+            <input type="radio" name="wsClassicMode" value="static" class="accent-cyan-400">
+            <div>
+              <p class="text-xs font-bold text-white">정지 이미지 영상</p>
+              <p class="text-[10px] text-slate-400">단일 이미지 1장 + 오디오 결합 인코딩</p>
+            </div>
+          </label>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-400 mb-1">오디오 파일</label>
+            <input type="file" id="wsClassicAudioInput" accept="audio/*" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-slate-200">
+          </div>
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-400 mb-1">배경 이미지 파일</label>
+            <input type="file" id="wsClassicImageInput" accept="image/*" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-slate-200">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div>
+            <label class="text-[11px] font-semibold text-slate-400">파형 색상</label>
+            <input type="color" id="wsWaveColor" value="#00d2ff" class="w-full h-9 bg-slate-950 border border-slate-700 rounded p-1 mt-1">
+          </div>
+          <div>
+            <label class="text-[11px] font-semibold text-slate-400">투명도 (Opacity)</label>
+            <input type="range" id="wsOpacitySlider" min="0.1" max="1.0" step="0.05" value="0.7" class="w-full accent-cyan-400 mt-2">
+          </div>
+          <div>
+            <label class="text-[11px] font-semibold text-slate-400">파형 높이 (px)</label>
+            <input type="range" id="wsHeightSlider" min="100" max="600" step="20" value="320" class="w-full accent-cyan-400 mt-2">
+          </div>
+          <div>
+            <label class="text-[11px] font-semibold text-slate-400">파형 위치</label>
+            <select id="wsClassicPosition" class="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs text-slate-200 mt-1">
+              <option value="bottom">하단 (Bottom)</option>
+              <option value="center">중앙 (Center)</option>
+              <option value="top">상단 (Top)</option>
+            </select>
+          </div>
+        </div>
+
+        <button type="button" id="wsBtnRenderClassic" class="w-full py-3 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-extrabold text-sm rounded-xl transition shadow-lg">
+          ⚡ 클래식 비디오 렌더링
+        </button>
+      </div>
+
+      <!-- ── MODE 4: YouTube AI Audio Overview ── -->
+      <div id="wsViewYoutube" class="hidden p-4 bg-slate-900/80 border border-slate-700/80 rounded-2xl space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-700 pb-2">
+          <span class="text-xs font-bold text-cyan-300">🎙️ 외국어 YouTube 동영상 분석 → Gemini 한국어 심층 해설 → Edge-TTS 나레이션</span>
+          <span id="wsYtDurationValBadge" class="text-xs px-2 py-0.5 bg-purple-900/50 text-purple-300 rounded font-mono">180초</span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-400 mb-1">YouTube URL 목록 (한 줄에 1개)</label>
+            <textarea id="wsYtUrlsInput" rows="3" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-200 resize-none font-mono"
+              placeholder="https://www.youtube.com/watch?v=..."></textarea>
+          </div>
+          <div class="space-y-2">
+            <div>
+              <label class="block text-[11px] font-semibold text-slate-400 mb-1">Gemini API 키</label>
+              <input type="password" id="wsYtApiKeyInput" class="w-full bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-200" placeholder="AI Studio 키">
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-400 mb-1">AI 보이스 (Edge-TTS)</label>
+                <select id="wsYtVoiceSelect" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-slate-200">
+                  <option value="ko-KR-InJoonNeural">인준 (신뢰감 있는 남성)</option>
+                  <option value="ko-KR-SunHiNeural">선희 (차분한 여성)</option>
+                  <option value="ko-KR-HyunsuNeural">현수 (자연스러운 남성)</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-400 mb-1">해설 톤앤매너</label>
+                <select id="wsYtToneSelect" class="w-full bg-slate-950 border border-slate-700 rounded p-1.5 text-xs text-slate-200">
+                  <option value="conversational">친절한 설명가 (Conversational)</option>
+                  <option value="informative">전문 브리핑 (Informative)</option>
+                  <option value="analytical">심층 분석 (Analytical)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <span class="text-[11px] font-semibold text-slate-400">목표 재생 시간:</span>
+          <button type="button" class="btn-ws-duration-preset text-xs px-2.5 py-1 bg-slate-800 rounded text-slate-300 font-bold" data-duration="60">1분</button>
+          <button type="button" class="btn-ws-duration-preset text-xs px-2.5 py-1 bg-slate-800 rounded text-slate-300 font-bold" data-duration="120">2분</button>
+          <button type="button" class="btn-ws-duration-preset active text-xs px-2.5 py-1 bg-purple-700 rounded text-white font-bold" data-duration="180">3분</button>
+          <button type="button" class="btn-ws-duration-preset text-xs px-2.5 py-1 bg-slate-800 rounded text-slate-300 font-bold" data-duration="300">5분</button>
+          <button type="button" class="btn-ws-duration-preset text-xs px-2.5 py-1 bg-slate-800 rounded text-slate-300 font-bold" data-duration="original">원본 길이 맞춤</button>
+          <button type="button" id="wsBtnGenerateYtOverview" class="ml-auto px-5 py-2 bg-gradient-to-r from-emerald-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white font-extrabold text-xs rounded-xl transition shadow">
+            ✨ AI 해설 및 나레이션 생성
+          </button>
+        </div>
+
+        <!-- YouTube Progress Monitor -->
+        <div id="wsYtMonitorBox" class="hidden p-3 bg-slate-950 border border-cyan-500/40 rounded-xl space-y-2">
+          <div class="flex justify-between items-center text-xs">
+            <span id="wsYtStageText" class="text-cyan-300 font-semibold">준비 중...</span>
+            <span id="wsYtPercentText" class="text-slate-400 font-mono">0%</span>
+          </div>
+          <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+            <div id="wsYtProgressFill" class="h-full bg-gradient-to-r from-cyan-400 to-purple-500 w-0 transition-all duration-300"></div>
+          </div>
+        </div>
+
+        <!-- Result Dialogue Section -->
+        <div id="wsYtResultSection" class="hidden space-y-3 border-t border-slate-700/80 pt-3">
+          <div class="flex items-center justify-between flex-wrap gap-2">
+            <span class="text-xs font-bold text-emerald-400">✅ 한국어 AI 해설 나레이션 완성</span>
+            <div class="flex gap-2 flex-wrap">
+              <button type="button" id="wsYtBtnSendToRemotion" class="px-3 py-1.5 bg-gradient-to-r from-cyan-600 to-blue-600 text-white font-bold text-xs rounded-lg transition">
+                🎬 Remotion 타임라인 스튜디오로 열기
+              </button>
+              <button type="button" id="wsYtBtnSendToScene" class="px-3 py-1.5 bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold text-xs rounded-lg transition">
+                📝 씬 &amp; 자막 스튜디오로 대본 전달
+              </button>
+              <a id="wsYtBtnDownloadAudio" download class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-emerald-300 text-xs font-semibold rounded-lg transition">🎵 오디오 다운로드</a>
+              <a id="wsYtBtnDownloadSrt" download class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-yellow-300 text-xs font-semibold rounded-lg transition">📄 SRT 자막</a>
+              <a id="wsYtBtnDownloadTxt" download class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded-lg transition">📋 대본 TXT</a>
+            </div>
+          </div>
+          <audio id="wsYtAudioPlayer" controls class="w-full rounded-lg"></audio>
+          <div id="wsYtDialogueList" class="space-y-2 max-h-56 overflow-y-auto pr-1"></div>
+        </div>
+      </div>
+
+      <!-- ── MODE 5: Output Library View ── -->
+      <div id="wsViewLibrary" class="hidden p-4 bg-slate-900/80 border border-slate-700/80 rounded-2xl space-y-4">
+        <div class="flex items-center justify-between border-b border-slate-700 pb-2">
+          <span class="text-xs font-bold text-cyan-300">📁 렌더링 완료된 1080p 비디오 및 오디오 보관함 (outputs/)</span>
+          <button onclick="window.WaveStudio.fetchLibraryFiles()" class="text-xs text-slate-400 hover:text-white">🔄 새로고침</button>
+        </div>
+        <div id="wsLibraryEmpty" class="text-center py-10 text-slate-500 text-xs">
+          생성된 비디오 파일이 아직 없습니다.
+        </div>
+        <div id="wsLibraryList" class="space-y-2 max-h-96 overflow-y-auto"></div>
+      </div>
+
+      <!-- ── Global Progress Monitor Box ── -->
+      <div id="wsGlobalMonitor" class="hidden ws-monitor-box">
+        <div class="flex justify-between items-center text-xs">
+          <span id="wsGlobalStageText" class="text-cyan-300 font-bold">렌더링 진행 중...</span>
+          <span id="wsGlobalPercentText" class="text-slate-400 font-mono">0%</span>
+        </div>
+        <div class="ws-progress-bar">
+          <div id="wsGlobalProgressFill" class="ws-progress-fill"></div>
+        </div>
+        <div id="wsGlobalResultArea"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
 
 </body>
 </html>
