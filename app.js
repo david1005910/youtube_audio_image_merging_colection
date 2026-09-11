@@ -3230,26 +3230,22 @@ chapters 배열에 ${chapters} 범위의 챕터를 채워주세요. 예시는 1�
 
       if (!rawSrc) throw new Error('이미지 데이터를 가져오지 못했습니다. 다시 시도해주세요.');
 
-      // 자막 텍스트를 Canvas로 오버레이
-      const subText  = (document.getElementById(`img-sub-${idx}`)?.value ?? _imageCards[idx]?.subtitles ?? '').trim();
-      const subMax   = parseInt(document.getElementById(`sub-max-${idx}`)?.value || '30', 10);
-      const finalSrc = await overlaySubtitle(rawSrc, subText, subMax);
-
-      imgEl.src = finalSrc;
-      imgEl.dataset.rawSrc = rawSrc; // 원본 보존 (자막 재적용용)
-      dlEl.href = finalSrc;
+      // 자막 오버레이 없이 순수 고화질 이미지(Pure Image) 그대로 사용
+      imgEl.src = rawSrc;
+      imgEl.dataset.rawSrc = rawSrc;
+      dlEl.href = rawSrc;
       dlEl.download = `image-${idx + 1}.png`;
 
       // _imageCards 상태 업데이트
       if (_imageCards[idx]) {
-        _imageCards[idx].imageSrc = finalSrc;
+        _imageCards[idx].imageSrc = rawSrc;
         _imageCards[idx].rawSrc = rawSrc;
       }
 
       // 버튼 표시
       const remotionBtn  = document.getElementById(`grok-remotion-${idx}`);
       const grokVideoBtn = document.getElementById(`grok-xai-video-${idx}`);
-      if (remotionBtn)  { remotionBtn.classList.remove('hidden'); remotionBtn.dataset.src = finalSrc; }
+      if (remotionBtn)  { remotionBtn.classList.remove('hidden'); remotionBtn.dataset.src = rawSrc; }
       if (grokVideoBtn) { grokVideoBtn.classList.remove('hidden'); }
       imgWrap.classList.remove('hidden');
     } catch (e) {

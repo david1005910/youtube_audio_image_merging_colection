@@ -1046,68 +1046,57 @@ class Handler(SimpleHTTPRequestHandler):
 
             def _clean_and_translate_prompt(text, key):
                 if not text:
-                    return 'cinematic 4k youtube thumbnail background, photorealistic 8k'
+                    return 'cinematic 4k youtube thumbnail background, photorealistic 8k', 'cinematic background'
                 # 1. Preserve bracketed content by replacing brackets with space (NEVER strip content!)
                 t = text.replace('[', ' ').replace(']', ' ')
                 t = re.sub(r'[\r\n\t]+', ' ', t)
                 t = re.sub(r'[\"\`\*\#]', ' ', t)
                 t = re.sub(r'\s+', ' ', t).strip()
 
+                eng_prompt = t
+                search_kw = t
+
                 # 2. If prompt contains Korean, translate & enrich to English via Gemini Text API
                 if re.search(r'[가-힣]', t) and key:
-                    trans_models = ['gemini-3.1-flash-lite', 'gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest']
+                    trans_models = ['gemini-2.5-flash-lite', 'gemini-3.1-flash-lite', 'gemini-3.5-flash', 'gemini-flash-latest']
                     for tm in trans_models:
                         try:
                             url = f'https://generativelanguage.googleapis.com/v1beta/models/{tm}:generateContent?key={key}'
                             req_body = json.dumps({
-                                'contents': [{'parts': [{'text': f'Translate and expand this image prompt into a vivid, descriptive English AI image prompt (max 45 words). Faithfully keep all subjects, lighting, composition, mood, and specified style. Output ONLY the English prompt text:\n\n{t}'}]}],
-                                'generationConfig': {'temperature': 0.2}
+                                'contents': [{'parts': [{'text': f'From this image description, output JSON with two fields:\n1. \"prompt\": Vivid, descriptive English AI image prompt (max 38 words) without any text or subtitles.\n2. \"keywords\": 2-3 English search words for the main subject.\n\nDescription: {t}\n\nJSON output ONLY:'}]}],
+                                'generationConfig': {'responseMimeType': 'application/json', 'temperature': 0.2}
                             }).encode('utf-8')
                             req = urllib.request.Request(url, data=req_body, headers={'Content-Type': 'application/json', 'User-Agent': 'YouTubeContentTool/1.0'})
                             with urllib.request.urlopen(req, timeout=5, context=_ssl_ctx) as resp:
                                 gdata = json.loads(resp.read().decode())
-                                tr = gdata.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '').strip()
-                                tr = tr.strip('\"\'` ')
-                                if tr and len(tr) > 10:
-                                    return tr
+                                tr_text = gdata.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '').strip()
+                                p_obj = json.loads(tr_text)
+                                p_res = p_obj.get('prompt', '').strip()
+                                kw_res = p_obj.get('keywords', '')
+                                if isinstance(kw_res, list): kw_res = ' '.join(kw_res)
+                                if p_res:
+                                    return p_res, (str(kw_res) or p_res)
                         except Exception:
                             continue
-                return t or 'cinematic 4k youtube thumbnail background'
+                return eng_prompt or 'cinematic 4k youtube thumbnail background', search_kw
 
-            clean_prompt = _clean_and_translate_prompt(raw_prompt, api_key)
+            clean_prompt, search_keywords = _clean_and_translate_prompt(raw_prompt, api_key)
 
-            # 1. Gemini Image Generation (if API Key and Image capability available)
-            if api_key:
-                try:
-                    url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key={api_key}'
-                    req_body = json.dumps({
-                        'contents': [{'parts': [{'text': f'High quality photorealistic 16:9 4k image: {clean_prompt}'}]}],
-                        'generationConfig': {'responseModalities': ['IMAGE', 'TEXT']}
-                    }).encode('utf-8')
-                    req = urllib.request.Request(url, data=req_body, headers={'Content-Type': 'application/json', 'User-Agent': 'YouTubeContentTool/1.0'})
-                    with urllib.request.urlopen(req, timeout=3, context=_ssl_ctx) as resp:
-                        gdata = json.loads(resp.read().decode())
-                        for cand in gdata.get('candidates', []):
-                            for part in cand.get('content', {}).get('parts', []):
-                                if 'inlineData' in part and part['inlineData'].get('data'):
-                                    _send_json(self, 200, {
-                                        'predictions': [{
-                                            'bytesBase64Encoded': part['inlineData']['data'],
-                                            'mimeType': part['inlineData'].get('mimeType', 'image/jpeg')
-                                        }]
-                                    })
-                                    return
-                except Exception:
-                    pass
+            # Ensure pure artwork without embedded subtitles
+            clean_prompt = clean_prompt.strip().rstrip(',')
+            if 'no text' not in clean_prompt.lower():
+                clean_prompt += ', pure artwork, no text, no subtitles, no watermark'
 
-            # 2. Pollinations AI (High-aesthetic fast multi-model pipeline)
+            # 1. Pollinations AI (High-aesthetic multi-model pipeline: flux -> turbo -> default)
             encoded_prompt = urllib.parse.quote(clean_prompt, safe='')
             seed = random.randint(1, 9999999)
             poll_urls = [
+                f'https://image.pollinations.ai/prompt/{encoded_prompt}?width=1280&height=720&nologo=true&seed={seed}&model=flux',
                 f'https://image.pollinations.ai/prompt/{encoded_prompt}?width=1280&height=720&nologo=true&seed={seed}&model=turbo',
                 f'https://image.pollinations.ai/prompt/{encoded_prompt}?width=1280&height=720&nologo=true&seed={seed}',
             ]
 
+            img_bytes = None
             for p_url in poll_urls:
                 try:
                     req_p = urllib.request.Request(
@@ -1117,63 +1106,54 @@ class Handler(SimpleHTTPRequestHandler):
                             'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8'
                         }
                     )
-                    with urllib.request.urlopen(req_p, timeout=5, context=_ssl_ctx) as resp_p:
-                        img_bytes = resp_p.read()
-                        if len(img_bytes) > 2000 and (img_bytes[:3] == b'\xff\xd8\xff' or img_bytes[:8] == b'\x89PNG\r\n\x1a\n' or b'WEBP' in img_bytes[:16]):
-                            b64 = base64.b64encode(img_bytes).decode('utf-8')
-                            _send_json(self, 200, {
-                                'predictions': [{
-                                    'bytesBase64Encoded': b64,
-                                    'mimeType': 'image/jpeg'
-                                }]
-                            })
-                            return
+                    with urllib.request.urlopen(req_p, timeout=8, context=_ssl_ctx) as resp_p:
+                        b = resp_p.read()
+                        if len(b) > 2000 and (b[:3] == b'\xff\xd8\xff' or b[:8] == b'\x89PNG\r\n\x1a\n' or b'WEBP' in b[:16]):
+                            img_bytes = b
+                            break
                 except Exception:
                     pass
 
-            # 3. Local Themed Backdrop Generator (Zero Network Dependency Fallback)
-            try:
-                import io
-                from PIL import Image, ImageDraw
-                img = Image.new('RGB', (1280, 720), color='#0b0f19')
-                draw = ImageDraw.Draw(img)
-                # Gradient based on prompt style keywords
-                p_lower = clean_prompt.lower()
-                if 'anime' in p_lower or 'makoto' in p_lower:
-                    c1, c2 = (30, 27, 75), (124, 58, 237)
-                elif 'cyberpunk' in p_lower or 'neon' in p_lower:
-                    c1, c2 = (15, 23, 42), (217, 70, 239)
-                elif 'pixar' in p_lower or '3d' in p_lower:
-                    c1, c2 = (30, 41, 59), (245, 158, 11)
-                elif 'watercolor' in p_lower:
-                    c1, c2 = (241, 245, 249), (147, 197, 253)
-                else:
-                    c1, c2 = (15, 23, 42), (30, 58, 138)
+            # 2. High-Res Real Subject Photography Fallback (Openverse CC Search)
+            if not img_bytes:
+                try:
+                    from PIL import Image, ImageOps
+                    import io
+                    kw = search_keywords or clean_prompt[:50]
+                    ov_url = f'https://api.openverse.org/v1/images/?q={urllib.parse.quote(kw)}&page_size=5&license_type=commercial,modification'
+                    req_ov = urllib.request.Request(ov_url, headers={'User-Agent': 'Mozilla/5.0'})
+                    with urllib.request.urlopen(req_ov, timeout=6, context=_ssl_ctx) as resp_ov:
+                        ov_data = json.loads(resp_ov.read().decode())
+                        for r in ov_data.get('results', []):
+                            img_u = r.get('url')
+                            if img_u and not img_u.endswith('.svg'):
+                                try:
+                                    req_img = urllib.request.Request(img_u, headers={'User-Agent': 'Mozilla/5.0'})
+                                    with urllib.request.urlopen(req_img, timeout=6, context=_ssl_ctx) as img_resp:
+                                        raw_data = img_resp.read()
+                                        if len(raw_data) > 5000:
+                                            im = Image.open(io.BytesIO(raw_data)).convert('RGB')
+                                            cropped = ImageOps.fit(im, (1280, 720), method=Image.Resampling.LANCZOS)
+                                            buf = io.BytesIO()
+                                            cropped.save(buf, format='JPEG', quality=90)
+                                            img_bytes = buf.getvalue()
+                                            break
+                                except Exception:
+                                    continue
+                except Exception:
+                    pass
 
-                for y in range(720):
-                    ratio = y / 720.0
-                    r = int(c1[0] * (1 - ratio) + c2[0] * ratio)
-                    g = int(c1[1] * (1 - ratio) + c2[1] * ratio)
-                    b = int(c1[2] * (1 - ratio) + c2[2] * ratio)
-                    draw.line([(0, y), (1280, y)], fill=(r, g, b))
+            if not img_bytes:
+                _send_json(self, 500, {'error': '이미지 생성 서버 응답이 지연되고 있습니다. 다시 시도해주세요.'})
+                return
 
-                for _ in range(40):
-                    cx = random.randint(30, 1250)
-                    cy = random.randint(30, 690)
-                    rad = random.randint(2, 8)
-                    draw.ellipse([cx - rad, cy - rad, cx + rad, cy + rad], fill=(255, 255, 255, 140))
-
-                buf = io.BytesIO()
-                img.save(buf, format='JPEG', quality=92)
-                b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-                _send_json(self, 200, {
-                    'predictions': [{
-                        'bytesBase64Encoded': b64,
-                        'mimeType': 'image/jpeg'
-                    }]
-                })
-            except Exception as e:
-                _send_json(self, 500, {'error': f'Image generation failed: {str(e)}'})
+            b64 = base64.b64encode(img_bytes).decode('utf-8')
+            _send_json(self, 200, {
+                'predictions': [{
+                    'bytesBase64Encoded': b64,
+                    'mimeType': 'image/jpeg'
+                }]
+            })
 
         elif path == '/api/proxy/gemini':
             data    = json.loads(body_raw)
@@ -1652,32 +1632,42 @@ class Handler(SimpleHTTPRequestHandler):
 
             def _quick_clean_prompt(text, key):
                 if not text:
-                    return 'beautiful cinematic landscape'
+                    return 'beautiful cinematic landscape', 'cinematic landscape'
                 t = text.replace('[', ' ').replace(']', ' ')
                 t = re.sub(r'[\r\n\t]+', ' ', t)
                 t = re.sub(r'[\"\`\*\#]', ' ', t)
                 t = re.sub(r'\s+', ' ', t).strip()
+                search_kw = t
                 if re.search(r'[가-힣]', t) and key:
                     try:
                         url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key={key}'
                         req_body = json.dumps({
-                            'contents': [{'parts': [{'text': f'Translate this image prompt into a concise descriptive English AI image prompt (max 35 words). Output ONLY the English prompt:\n\n{t}'}]}],
-                            'generationConfig': {'temperature': 0.2}
+                            'contents': [{'parts': [{'text': f'From this image description, output JSON with two fields:\n1. \"prompt\": Vivid, descriptive English AI image prompt (max 35 words) without any text or subtitles.\n2. \"keywords\": 2-3 English search words for the main subject.\n\nDescription: {t}\n\nJSON output ONLY:'}]}],
+                            'generationConfig': {'responseMimeType': 'application/json', 'temperature': 0.2}
                         }).encode('utf-8')
                         req = urllib.request.Request(url, data=req_body, headers={'Content-Type': 'application/json', 'User-Agent': 'YouTubeContentTool/1.0'})
                         with urllib.request.urlopen(req, timeout=4, context=_ssl_ctx) as resp:
                             gdata = json.loads(resp.read().decode())
-                            tr = gdata.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '').strip().strip('\"\'` ')
-                            if tr and len(tr) > 5:
-                                return tr
+                            tr_text = gdata.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '').strip()
+                            p_obj = json.loads(tr_text)
+                            p_res = p_obj.get('prompt', '').strip()
+                            kw_res = p_obj.get('keywords', '')
+                            if isinstance(kw_res, list): kw_res = ' '.join(kw_res)
+                            if p_res:
+                                return p_res, (str(kw_res) or p_res)
                     except Exception:
                         pass
-                return t or 'beautiful cinematic landscape'
+                return t or 'beautiful cinematic landscape', search_kw
 
-            clean_prompt = _quick_clean_prompt(raw_prompt, api_key)
+            clean_prompt, search_keywords = _quick_clean_prompt(raw_prompt, api_key)
+            clean_prompt = clean_prompt.strip().rstrip(',')
+            if 'no text' not in clean_prompt.lower():
+                clean_prompt += ', pure artwork, no text, no subtitles, no watermark'
+
             encoded_prompt = urllib.parse.quote(clean_prompt, safe='')
             seed = random.randint(1, 9999999)
             poll_urls = [
+                f'https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={height}&nologo={nologo}&seed={seed}&model=flux',
                 f'https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={height}&nologo={nologo}&seed={seed}&model=turbo',
                 f'https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={height}&nologo={nologo}&seed={seed}',
             ]
@@ -1692,7 +1682,7 @@ class Handler(SimpleHTTPRequestHandler):
                             'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8'
                         }
                     )
-                    with urllib.request.urlopen(req_p, timeout=6, context=_ssl_ctx) as resp_p:
+                    with urllib.request.urlopen(req_p, timeout=8, context=_ssl_ctx) as resp_p:
                         b = resp_p.read()
                         if len(b) > 2000 and (b[:3] == b'\xff\xd8\xff' or b[:8] == b'\x89PNG\r\n\x1a\n' or b'WEBP' in b[:16]):
                             img_data = b
@@ -1700,30 +1690,38 @@ class Handler(SimpleHTTPRequestHandler):
                 except Exception:
                     pass
 
+            # Openverse CC high-resolution photography search fallback
             if not img_data:
-                # Local Pillow fallback
                 try:
+                    from PIL import Image, ImageOps
                     import io
-                    from PIL import Image, ImageDraw
-                    fallback_img = Image.new('RGB', (width, height), color='#0f172a')
-                    draw = ImageDraw.Draw(fallback_img)
-                    for y in range(height):
-                        ratio = y / float(height)
-                        r = int(15 * (1 - ratio) + 30 * ratio)
-                        g = int(23 * (1 - ratio) + 58 * ratio)
-                        b = int(42 * (1 - ratio) + 138 * ratio)
-                        draw.line([(0, y), (width, y)], fill=(r, g, b))
-                    for _ in range(30):
-                        cx = random.randint(20, width - 20)
-                        cy = random.randint(20, height - 20)
-                        rad = random.randint(2, 6)
-                        draw.ellipse([cx - rad, cy - rad, cx + rad, cy + rad], fill=(255, 255, 255, 140))
-                    buf = io.BytesIO()
-                    fallback_img.save(buf, format='JPEG', quality=90)
-                    img_data = buf.getvalue()
-                except Exception as e:
-                    _send_json(self, 500, {'error': str(e)})
-                    return
+                    kw = search_keywords or clean_prompt[:50]
+                    ov_url = f'https://api.openverse.org/v1/images/?q={urllib.parse.quote(kw)}&page_size=5&license_type=commercial,modification'
+                    req_ov = urllib.request.Request(ov_url, headers={'User-Agent': 'Mozilla/5.0'})
+                    with urllib.request.urlopen(req_ov, timeout=6, context=_ssl_ctx) as resp_ov:
+                        ov_data = json.loads(resp_ov.read().decode())
+                        for r in ov_data.get('results', []):
+                            img_u = r.get('url')
+                            if img_u and not img_u.endswith('.svg'):
+                                try:
+                                    req_img = urllib.request.Request(img_u, headers={'User-Agent': 'Mozilla/5.0'})
+                                    with urllib.request.urlopen(req_img, timeout=6, context=_ssl_ctx) as img_resp:
+                                        raw_bytes = img_resp.read()
+                                        if len(raw_bytes) > 5000:
+                                            im = Image.open(io.BytesIO(raw_bytes)).convert('RGB')
+                                            cropped = ImageOps.fit(im, (width, height), method=Image.Resampling.LANCZOS)
+                                            buf = io.BytesIO()
+                                            cropped.save(buf, format='JPEG', quality=90)
+                                            img_data = buf.getvalue()
+                                            break
+                                except Exception:
+                                    continue
+                except Exception:
+                    pass
+
+            if not img_data:
+                _send_json(self, 500, {'error': 'Image generation server is busy. Please try again.'})
+                return
 
             self.send_response(200)
             self.send_header('Content-Type', 'image/jpeg')
