@@ -1643,32 +1643,93 @@ class Handler(SimpleHTTPRequestHandler):
                 shutil.rmtree(tmpdir, ignore_errors=True)
 
         elif path == '/api/proxy/pollinations':
-            data = json.loads(body_raw)
-            prompt = data.get('prompt', 'beautiful landscape')
-            width = data.get('width', 1024)
-            height = data.get('height', 1024)
+            data = json.loads(body_raw) if body_raw else {}
+            raw_prompt = data.get('prompt', 'beautiful landscape')
+            width = int(data.get('width', 1024))
+            height = int(data.get('height', 1024))
             nologo = data.get('nologo', 'true')
-            pollinations_url = f'https://image.pollinations.ai/prompt/{urllib.parse.quote(prompt, safe="")}?width={width}&height={height}&nologo={nologo}'
-            try:
-                req = urllib.request.Request(
-                    pollinations_url,
-                    headers={
-                        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-                        'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
-                        'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
-                    }
-                )
-                with urllib.request.urlopen(req, timeout=30, context=_ssl_ctx) as resp:
-                    image_data = resp.read()
-                    content_type = resp.headers.get('Content-Type', 'image/jpeg')
+            api_key = load_env().get('GEMINI_API_KEY', '')
 
-                self.send_response(200)
-                self.send_header('Content-Type', content_type)
-                self.send_header('Content-Length', len(image_data))
-                self.end_headers()
-                self.wfile.write(image_data)
-            except Exception as e:
-                _send_json(self, 500, {'error': str(e)})
+            def _quick_clean_prompt(text, key):
+                if not text:
+                    return 'beautiful cinematic landscape'
+                t = text.replace('[', ' ').replace(']', ' ')
+                t = re.sub(r'[\r\n\t]+', ' ', t)
+                t = re.sub(r'[\"\`\*\#]', ' ', t)
+                t = re.sub(r'\s+', ' ', t).strip()
+                if re.search(r'[가-힣]', t) and key:
+                    try:
+                        url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key={key}'
+                        req_body = json.dumps({
+                            'contents': [{'parts': [{'text': f'Translate this image prompt into a concise descriptive English AI image prompt (max 35 words). Output ONLY the English prompt:\n\n{t}'}]}],
+                            'generationConfig': {'temperature': 0.2}
+                        }).encode('utf-8')
+                        req = urllib.request.Request(url, data=req_body, headers={'Content-Type': 'application/json', 'User-Agent': 'YouTubeContentTool/1.0'})
+                        with urllib.request.urlopen(req, timeout=4, context=_ssl_ctx) as resp:
+                            gdata = json.loads(resp.read().decode())
+                            tr = gdata.get('candidates', [{}])[0].get('content', {}).get('parts', [{}])[0].get('text', '').strip().strip('\"\'` ')
+                            if tr and len(tr) > 5:
+                                return tr
+                    except Exception:
+                        pass
+                return t or 'beautiful cinematic landscape'
+
+            clean_prompt = _quick_clean_prompt(raw_prompt, api_key)
+            encoded_prompt = urllib.parse.quote(clean_prompt, safe='')
+            seed = random.randint(1, 9999999)
+            poll_urls = [
+                f'https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={height}&nologo={nologo}&seed={seed}&model=turbo',
+                f'https://image.pollinations.ai/prompt/{encoded_prompt}?width={width}&height={height}&nologo={nologo}&seed={seed}',
+            ]
+
+            img_data = None
+            for p_url in poll_urls:
+                try:
+                    req_p = urllib.request.Request(
+                        p_url,
+                        headers={
+                            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                            'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8'
+                        }
+                    )
+                    with urllib.request.urlopen(req_p, timeout=6, context=_ssl_ctx) as resp_p:
+                        b = resp_p.read()
+                        if len(b) > 2000 and (b[:3] == b'\xff\xd8\xff' or b[:8] == b'\x89PNG\r\n\x1a\n' or b'WEBP' in b[:16]):
+                            img_data = b
+                            break
+                except Exception:
+                    pass
+
+            if not img_data:
+                # Local Pillow fallback
+                try:
+                    import io
+                    from PIL import Image, ImageDraw
+                    fallback_img = Image.new('RGB', (width, height), color='#0f172a')
+                    draw = ImageDraw.Draw(fallback_img)
+                    for y in range(height):
+                        ratio = y / float(height)
+                        r = int(15 * (1 - ratio) + 30 * ratio)
+                        g = int(23 * (1 - ratio) + 58 * ratio)
+                        b = int(42 * (1 - ratio) + 138 * ratio)
+                        draw.line([(0, y), (width, y)], fill=(r, g, b))
+                    for _ in range(30):
+                        cx = random.randint(20, width - 20)
+                        cy = random.randint(20, height - 20)
+                        rad = random.randint(2, 6)
+                        draw.ellipse([cx - rad, cy - rad, cx + rad, cy + rad], fill=(255, 255, 255, 140))
+                    buf = io.BytesIO()
+                    fallback_img.save(buf, format='JPEG', quality=90)
+                    img_data = buf.getvalue()
+                except Exception as e:
+                    _send_json(self, 500, {'error': str(e)})
+                    return
+
+            self.send_response(200)
+            self.send_header('Content-Type', 'image/jpeg')
+            self.send_header('Content-Length', len(img_data))
+            self.end_headers()
+            self.wfile.write(img_data)
 
         else:
             self.send_response(404)

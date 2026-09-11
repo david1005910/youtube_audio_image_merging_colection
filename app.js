@@ -3146,14 +3146,18 @@ chapters 배열에 ${chapters} 범위의 챕터를 채워주세요. 예시는 1�
     if (btn) { btn.disabled = true; btn.textContent = '생성 중…'; }
 
     try {
-      // ── Step 1: 프롬프트 & 장면 매칭 검증 (검증 실패해도 이미지 생성 계속) ──
+      // ── Step 1: 프롬프트 & 장면 매칭 검증 (최대 2초 타임아웃, 실패해도 즉시 생성 계속) ──
       if (cutDesc) {
         try {
           if (spinLabel) spinLabel.textContent = '① 프롬프트 검증 중…';
-          const valResult = await geminiChat(
-            '당신은 이미지 생성 프롬프트 품질 평가 전문가입니다. 한국어 장면 묘사와 영어 AI 이미지 프롬프트의 매칭 정도를 평가하고 딱 2줄로 답변하세요: 첫 줄은 "✅ 매칭 우수" / "⚠️ 부분 매칭" / "❌ 미스매칭" 중 하나 + 점수(1-10) + 한 줄 이유, 둘째 줄은 개선 제안 (없으면 "개선 불필요").',
-            [{ role: 'user', parts: [{ text: `장면 묘사 (한국어): ${cutDesc}\n\nAI 이미지 프롬프트 (영어): ${prompt}` }] }]
-          );
+          const valResult = await Promise.race([
+            geminiChat(
+              '당신은 이미지 생성 프롬프트 품질 평가 전문가입니다. 한국어 장면 묘사와 영어 AI 이미지 프롬프트의 매칭 정도를 평가하고 딱 2줄로 답변하세요: 첫 줄은 "✅ 매칭 우수" / "⚠️ 부분 매칭" / "❌ 미스매칭" 중 하나 + 점수(1-10) + 한 줄 이유, 둘째 줄은 개선 제안 (없으면 "개선 불필요").',
+              [{ role: 'user', parts: [{ text: `장면 묘사 (한국어): ${cutDesc}\n\nAI 이미지 프롬프트 (영어): ${prompt}` }] }]
+            ),
+            new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 2000))
+          ]).catch(() => null);
+
           if (valResult && valResult !== '응답 없음') {
             const isGood = valResult.includes('✅');
             const needsImprove = !isGood;
@@ -3221,7 +3225,7 @@ chapters 배열에 ${chapters} 범위의 챕터를 채워주세요. 예시는 1�
           rawSrc = `data:${mime};base64,${b64}`;
           break;
         }
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise(r => setTimeout(r, 800));
       }
 
       if (!rawSrc) throw new Error('이미지 데이터를 가져오지 못했습니다. 다시 시도해주세요.');
@@ -3235,6 +3239,13 @@ chapters 배열에 ${chapters} 범위의 챕터를 채워주세요. 예시는 1�
       imgEl.dataset.rawSrc = rawSrc; // 원본 보존 (자막 재적용용)
       dlEl.href = finalSrc;
       dlEl.download = `image-${idx + 1}.png`;
+
+      // _imageCards 상태 업데이트
+      if (_imageCards[idx]) {
+        _imageCards[idx].imageSrc = finalSrc;
+        _imageCards[idx].rawSrc = rawSrc;
+      }
+
       // 버튼 표시
       const remotionBtn  = document.getElementById(`grok-remotion-${idx}`);
       const grokVideoBtn = document.getElementById(`grok-xai-video-${idx}`);
