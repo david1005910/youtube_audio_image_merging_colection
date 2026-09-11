@@ -243,6 +243,12 @@
       name: '📐 미니멀 벡터',
       desc: '깔끔한 기하학 도형과 트렌디한 플랫 디자인',
       suffix: 'modern flat vector graphic illustration, clean geometric shapes, minimalist trendy corporate art style, bold curated palette'
+    },
+    'whiteboard': {
+      id: 'whiteboard',
+      name: '📋 화이트보드 애니메이션',
+      desc: '깔끔한 흰색 배경 위의 블랙 마커 손그림 & 두들 스타일',
+      suffix: 'whiteboard animation style, hand-drawn black marker doodle sketch on clean pure white background, simple minimalist line art illustration, educational explainer video aesthetic, sharp crisp black outlines, high contrast, pure artwork, no watermark'
     }
   };
 
@@ -1252,6 +1258,7 @@ chapters 배열에 ${chapters} 범위의 챕터를 채워주세요. 예시는 1�
             <option value="fantasy">✨ 판타지 컨셉아트</option>
             <option value="scifi">🌌 우주 &amp; SF 스타일</option>
             <option value="minimalist">📐 미니멀 플랫 디자인</option>
+            <option value="whiteboard">📋 화이트보드 애니메이션</option>
           </select>
         </div>
         ${data.thumbnailImagePrompt ? `
@@ -2453,6 +2460,7 @@ chapters 배열에 ${chapters} 범위의 챕터를 채워주세요. 예시는 1�
                       <option value="fantasy">✨ 판타지 컨셉아트</option>
                       <option value="scifi">🌌 우주 &amp; SF</option>
                       <option value="minimalist">📐 미니멀 벡터</option>
+                      <option value="whiteboard">📋 화이트보드 애니메이션</option>
                       <option value="none">🚫 스타일 태그 없음</option>
                     </select>
                   </div>
