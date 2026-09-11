@@ -257,6 +257,60 @@
   let _thumbnailStyle = 'cinematic';
   let _originalCardPrompts = {};
 
+  // ─── 프롬프트 스타일 정리 및 적용 헬퍼 ────────────────────────
+  window.cleanPromptOfAllStyles = function(text) {
+    if (!text) return '';
+    let p = text;
+
+    // 1. 등록된 모든 스타일의 suffix 제거
+    Object.values(window.IMAGE_STYLES).forEach(s => {
+      if (s.suffix) {
+        p = p.replace(new RegExp(',?\\s*' + s.suffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '');
+      }
+    });
+
+    // 2. 상충되는 이전 스타일 키워드들 정리
+    const conflictingPhrases = [
+      /,\s*cinematic\s+photography[^\,\.\;]*/gi,
+      /,\s*photorealistic[^\,\.\;]*/gi,
+      /,\s*8k\s+resolution[^\,\.\;]*/gi,
+      /,\s*dramatic\s+volumetric\s+lighting[^\,\.\;]*/gi,
+      /,\s*35mm\s+film\s+grain[^\,\.\;]*/gi,
+      /,\s*shallow\s+depth\s+of\s+field[^\,\.\;]*/gi,
+      /,\s*octane\s+render[^\,\.\;]*/gi,
+      /,\s*cute\s+3d\s+pixar[^\,\.\;]*/gi,
+      /,\s*anime\s+artwork[^\,\.\;]*/gi,
+      /,\s*makoto\s+shinkai\s+style[^\,\.\;]*/gi,
+      /,\s*cyberpunk\s+neon[^\,\.\;]*/gi,
+      /,\s*delicate\s+watercolor[^\,\.\;]*/gi,
+      /,\s*vintage\s+1990s[^\,\.\;]*/gi,
+      /,\s*detailed\s+monochrome\s+ink[^\,\.\;]*/gi,
+      /,\s*epic\s+fantasy\s+digital[^\,\.\;]*/gi,
+      /,\s*epic\s+sci-fi[^\,\.\;]*/gi,
+      /,\s*modern\s+flat\s+vector[^\,\.\;]*/gi,
+      /,\s*whiteboard\s+animation\s+style[^\,\.\;]*/gi,
+      /,\s*hand-drawn\s+black\s+marker[^\,\.\;]*/gi,
+      /,\s*pure\s+artwork[^\,\.\;]*/gi,
+      /,\s*no\s+text[^\,\.\;]*/gi,
+      /,\s*no\s+subtitles[^\,\.\;]*/gi,
+      /,\s*no\s+watermark[^\,\.\;]*/gi
+    ];
+
+    conflictingPhrases.forEach(regex => {
+      p = p.replace(regex, '');
+    });
+
+    return p.trim().replace(/,\s*$/, '').trim();
+  };
+
+  window.applyStyleToPromptText = function(rawPrompt, styleObj) {
+    const basePrompt = cleanPromptOfAllStyles(rawPrompt);
+    if (!styleObj || !styleObj.suffix || styleObj.id === 'none') {
+      return basePrompt;
+    }
+    return `${basePrompt}, ${styleObj.suffix}`;
+  };
+
   window.selectGlobalImageStyle = function(styleId) {
     if (!window.IMAGE_STYLES[styleId]) return;
     _globalImageStyle = styleId;
@@ -273,6 +327,21 @@
         isCur ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/30 ring-1 ring-indigo-400' : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700'
       }`;
     });
+
+    // ✨ 글로벌 스타일 선택 시 모든 카드 프롬프트에 즉시 자동 적용!
+    if (_imageCards && _imageCards.length > 0) {
+      _imageCards.forEach((card, i) => {
+        const cardSelect = document.getElementById(`card-style-${i}`);
+        const curCardStyle = cardSelect ? cardSelect.value : (_cardImageStyles[i] || 'global');
+        if (curCardStyle === 'global') {
+          const promptEl = document.getElementById(`img-prompt-${i}`);
+          const curPrompt = promptEl ? promptEl.value : card.prompt;
+          const updated = applyStyleToPromptText(curPrompt, style);
+          if (promptEl) promptEl.value = updated;
+          card.prompt = updated;
+        }
+      });
+    }
   };
 
   window.renderGlobalStylePills = function() {
@@ -287,7 +356,7 @@
     }).join('');
   };
 
-  window.applyGlobalStyleToAllPrompts = function() {
+  window.applyGlobalStyleToAllPrompts = function(options = {}) {
     const style = window.IMAGE_STYLES[_globalImageStyle];
     if (!style || !_imageCards) return;
 
@@ -295,17 +364,12 @@
       const promptEl = document.getElementById(`img-prompt-${i}`);
       let p = promptEl ? promptEl.value : card.prompt;
       if (!_originalCardPrompts[i]) {
-        _originalCardPrompts[i] = p;
+        _originalCardPrompts[i] = cleanPromptOfAllStyles(p);
       }
 
-      // 이전 스타일 접미사들 제거
-      Object.values(window.IMAGE_STYLES).forEach(s => {
-        p = p.replace(new RegExp(',\\s*' + s.suffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '');
-      });
-
-      p = p.trim().replace(/,\s*$/, '') + ', ' + style.suffix;
-      if (promptEl) promptEl.value = p;
-      card.prompt = p;
+      const updated = applyStyleToPromptText(p, style);
+      if (promptEl) promptEl.value = updated;
+      card.prompt = updated;
 
       // 카드별 선택기도 글로벌로 변경
       const cSelect = document.getElementById(`card-style-${i}`);
@@ -313,7 +377,9 @@
       _cardImageStyles[i] = 'global';
     });
 
-    alert(`✨ 모든 ${_imageCards.length}개 장면에 '${style.name}' 스타일이 적용되었습니다!`);
+    if (!options.silent) {
+      alert(`✨ 모든 ${_imageCards.length}개 장면에 '${style.name}' 스타일이 적용되었습니다!`);
+    }
   };
 
   window.resetPromptsToOriginal = function() {
@@ -335,22 +401,16 @@
 
     let p = promptEl.value;
     if (!_originalCardPrompts[idx]) {
-      _originalCardPrompts[idx] = p;
+      _originalCardPrompts[idx] = cleanPromptOfAllStyles(p);
     }
 
-    // 이전 스타일 접미사들 제거
-    Object.values(window.IMAGE_STYLES).forEach(s => {
-      p = p.replace(new RegExp(',\\s*' + s.suffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '');
-    });
+    const targetStyle = (styleId === 'global')
+      ? window.IMAGE_STYLES[_globalImageStyle]
+      : (styleId !== 'none' ? window.IMAGE_STYLES[styleId] : null);
 
-    if (styleId !== 'none' && styleId !== 'global' && window.IMAGE_STYLES[styleId]) {
-      p = p.trim().replace(/,\s*$/, '') + ', ' + window.IMAGE_STYLES[styleId].suffix;
-    } else if (styleId === 'global' && window.IMAGE_STYLES[_globalImageStyle]) {
-      p = p.trim().replace(/,\s*$/, '') + ', ' + window.IMAGE_STYLES[_globalImageStyle].suffix;
-    }
-
-    promptEl.value = p.trim();
-    if (_imageCards[idx]) _imageCards[idx].prompt = promptEl.value;
+    const updated = applyStyleToPromptText(p, targetStyle);
+    promptEl.value = updated;
+    if (_imageCards[idx]) _imageCards[idx].prompt = updated;
   };
 
   window.getEffectiveStyleForCard = function(idx) {
@@ -3127,8 +3187,18 @@ chapters 배열에 ${chapters} 범위의 챕터를 채워주세요. 예시는 1�
 
   window.generateSingleGrokImage = async (idx) => {
     const promptEl  = document.getElementById(`img-prompt-${idx}`);
-    let prompt      = (promptEl ? promptEl.value : '').trim() || (_imageCards[idx]?.prompt ?? '');
-    if (!prompt) return;
+    let rawInput    = (promptEl ? promptEl.value : '').trim() || (_imageCards[idx]?.prompt ?? '');
+    if (!rawInput) return;
+
+    // ✨ 유효한 스타일 강제 적용 확인 및 정제
+    const effectiveStyle = getEffectiveStyleForCard(idx);
+    let prompt = applyStyleToPromptText(rawInput, effectiveStyle);
+    if (promptEl && promptEl.value !== prompt) {
+      promptEl.value = prompt;
+    }
+    if (_imageCards[idx]) {
+      _imageCards[idx].prompt = prompt;
+    }
 
     // 참조 캐릭터 묘사가 있으면 프롬프트 앞에 자동 첨부
     if (_refCharDescText) {

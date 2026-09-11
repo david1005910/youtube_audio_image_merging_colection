@@ -1063,7 +1063,7 @@ class Handler(SimpleHTTPRequestHandler):
                         try:
                             url = f'https://generativelanguage.googleapis.com/v1beta/models/{tm}:generateContent?key={key}'
                             req_body = json.dumps({
-                                'contents': [{'parts': [{'text': f'From this image description, output JSON with two fields:\n1. \"prompt\": Vivid, descriptive English AI image prompt (max 38 words) without any text or subtitles.\n2. \"keywords\": 2-3 English search words for the main subject.\n\nDescription: {t}\n\nJSON output ONLY:'}]}],
+                                'contents': [{'parts': [{'text': f'From this image description, output JSON with two fields:\n1. \"prompt\": Accurate, descriptive English AI image prompt faithfully preserving any specified art style (e.g., whiteboard animation doodle, sketch, anime, 3D, watercolor, etc.) without any text or subtitles.\n2. \"keywords\": 2-3 English search words for the main subject.\n\nDescription: {t}\n\nJSON output ONLY:'}]}],
                                 'generationConfig': {'responseMimeType': 'application/json', 'temperature': 0.2}
                             }).encode('utf-8')
                             req = urllib.request.Request(url, data=req_body, headers={'Content-Type': 'application/json', 'User-Agent': 'YouTubeContentTool/1.0'})
@@ -1078,7 +1078,7 @@ class Handler(SimpleHTTPRequestHandler):
                                     return p_res, (str(kw_res) or p_res)
                         except Exception:
                             continue
-                return eng_prompt or 'cinematic 4k youtube thumbnail background', search_kw
+                return eng_prompt or 'high quality artwork', search_kw
 
             clean_prompt, search_keywords = _clean_and_translate_prompt(raw_prompt, api_key)
 
@@ -1642,7 +1642,7 @@ class Handler(SimpleHTTPRequestHandler):
                     try:
                         url = f'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key={key}'
                         req_body = json.dumps({
-                            'contents': [{'parts': [{'text': f'From this image description, output JSON with two fields:\n1. \"prompt\": Vivid, descriptive English AI image prompt (max 35 words) without any text or subtitles.\n2. \"keywords\": 2-3 English search words for the main subject.\n\nDescription: {t}\n\nJSON output ONLY:'}]}],
+                            'contents': [{'parts': [{'text': f'From this image description, output JSON with two fields:\n1. \"prompt\": Accurate, descriptive English AI image prompt faithfully preserving any specified art style (e.g., whiteboard animation doodle, sketch, anime, 3D, watercolor, etc.) without any text or subtitles.\n2. \"keywords\": 2-3 English search words for the main subject.\n\nDescription: {t}\n\nJSON output ONLY:'}]}],
                             'generationConfig': {'responseMimeType': 'application/json', 'temperature': 0.2}
                         }).encode('utf-8')
                         req = urllib.request.Request(url, data=req_body, headers={'Content-Type': 'application/json', 'User-Agent': 'YouTubeContentTool/1.0'})
@@ -1657,7 +1657,7 @@ class Handler(SimpleHTTPRequestHandler):
                                 return p_res, (str(kw_res) or p_res)
                     except Exception:
                         pass
-                return t or 'beautiful cinematic landscape', search_kw
+                return t or 'high quality artwork', search_kw
 
             clean_prompt, search_keywords = _quick_clean_prompt(raw_prompt, api_key)
             clean_prompt = clean_prompt.strip().rstrip(',')
