@@ -258,60 +258,68 @@
   let _originalCardPrompts = {};
 
   // ─── 프롬프트 스타일 정리 및 적용 헬퍼 ────────────────────────
-  window.cleanPromptOfAllStyles = function(text) {
+  function _escapeRegex(str) {
+    return (str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  function cleanPromptOfAllStyles(text) {
     if (!text) return '';
-    let p = text;
+    let p = text.trim();
 
-    // 1. 등록된 모든 스타일의 suffix 제거
-    Object.values(window.IMAGE_STYLES).forEach(s => {
-      if (s.suffix) {
-        p = p.replace(new RegExp(',?\\s*' + s.suffix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'), '');
-      }
-    });
+    // 0. 대괄호 [ ... ] 로 감싸진 경우 제거
+    if (p.startsWith('[') && p.endsWith(']')) {
+      p = p.slice(1, -1).trim();
+    }
 
-    // 2. 상충되는 이전 스타일 키워드들 정리
-    const conflictingPhrases = [
-      /,\s*cinematic\s+photography[^\,\.\;]*/gi,
-      /,\s*photorealistic[^\,\.\;]*/gi,
-      /,\s*8k\s+resolution[^\,\.\;]*/gi,
-      /,\s*dramatic\s+volumetric\s+lighting[^\,\.\;]*/gi,
-      /,\s*35mm\s+film\s+grain[^\,\.\;]*/gi,
-      /,\s*shallow\s+depth\s+of\s+field[^\,\.\;]*/gi,
-      /,\s*octane\s+render[^\,\.\;]*/gi,
-      /,\s*cute\s+3d\s+pixar[^\,\.\;]*/gi,
-      /,\s*anime\s+artwork[^\,\.\;]*/gi,
-      /,\s*makoto\s+shinkai\s+style[^\,\.\;]*/gi,
-      /,\s*cyberpunk\s+neon[^\,\.\;]*/gi,
-      /,\s*delicate\s+watercolor[^\,\.\;]*/gi,
-      /,\s*vintage\s+1990s[^\,\.\;]*/gi,
-      /,\s*detailed\s+monochrome\s+ink[^\,\.\;]*/gi,
-      /,\s*epic\s+fantasy\s+digital[^\,\.\;]*/gi,
-      /,\s*epic\s+sci-fi[^\,\.\;]*/gi,
-      /,\s*modern\s+flat\s+vector[^\,\.\;]*/gi,
-      /,\s*whiteboard\s+animation\s+style[^\,\.\;]*/gi,
-      /,\s*hand-drawn\s+black\s+marker[^\,\.\;]*/gi,
-      /,\s*pure\s+artwork[^\,\.\;]*/gi,
-      /,\s*no\s+text[^\,\.\;]*/gi,
-      /,\s*no\s+subtitles[^\,\.\;]*/gi,
-      /,\s*no\s+watermark[^\,\.\;]*/gi
+    // 1. 등록된 모든 스타일의 suffix 및 하위 구문 제거
+    if (window.IMAGE_STYLES) {
+      Object.values(window.IMAGE_STYLES).forEach(s => {
+        if (s.suffix) {
+          p = p.replace(new RegExp('(?:,\\s*)?' + _escapeRegex(s.suffix), 'gi'), '');
+          s.suffix.split(',').forEach(sub => {
+            const trimmed = sub.trim();
+            if (trimmed.length > 2) {
+              p = p.replace(new RegExp('(?:,\\s*)?' + _escapeRegex(trimmed), 'gi'), '');
+            }
+          });
+        }
+      });
+    }
+
+    // 2. 상충되는 스타일 키워드 및 일반 수식어 완벽 정제
+    const extraPhrases = [
+      'whiteboard animation', 'whiteboard', 'hand-drawn black marker doodle', 'hand-drawn marker',
+      'pure white background', 'clean white background', 'white background',
+      'minimalist line art', 'explainer video aesthetic', 'black outlines',
+      'cinematic photography', 'photorealistic 8k', 'photorealistic', '8k resolution', '4k resolution',
+      'dramatic volumetric lighting', 'dramatic lighting', 'volumetric lighting', '35mm film grain', 'film grain',
+      'shallow depth of field', 'octane render', 'cute 3d pixar', 'pixar disney animation',
+      'clay volumetric', 'adorable character', 'anime artwork', 'makoto shinkai', 'clean lineart',
+      'detailed illustration', 'studio anime', 'cyberpunk neon', 'glowing holographic', 'rainy futuristic',
+      'watercolor painting', 'pastel brush', 'color washes', 'canvas texture', 'vintage 1990s', 'nostalgic color',
+      'disposable camera', 'monochrome ink', 'crosshatching line art', 'graphic novel sketch', 'fantasy digital concept',
+      'magical particles', 'artstation trending', 'sci-fi space', 'planetary nebulae', 'flat vector graphic',
+      'geometric shapes', 'pure artwork', 'no text', 'no subtitles', 'no watermark', 'masterpiece'
     ];
 
-    conflictingPhrases.forEach(regex => {
-      p = p.replace(regex, '');
+    extraPhrases.forEach(ph => {
+      p = p.replace(new RegExp('(?:,\\s*)?' + _escapeRegex(ph) + '[^,\\.;]*', 'gi'), '');
     });
 
-    return p.trim().replace(/,\s*$/, '').trim();
-  };
+    return p.replace(/,\s*,+/g, ',').replace(/^[,;\s]+|[,;\s]+$/g, '').trim();
+  }
+  window.cleanPromptOfAllStyles = cleanPromptOfAllStyles;
 
-  window.applyStyleToPromptText = function(rawPrompt, styleObj) {
+  function applyStyleToPromptText(rawPrompt, styleObj) {
     const basePrompt = cleanPromptOfAllStyles(rawPrompt);
     if (!styleObj || !styleObj.suffix || styleObj.id === 'none') {
       return basePrompt;
     }
-    return `${basePrompt}, ${styleObj.suffix}`;
-  };
+    return basePrompt ? `${basePrompt}, ${styleObj.suffix}` : styleObj.suffix;
+  }
+  window.applyStyleToPromptText = applyStyleToPromptText;
 
-  window.selectGlobalImageStyle = function(styleId) {
+  function selectGlobalImageStyle(styleId) {
     if (!window.IMAGE_STYLES[styleId]) return;
     _globalImageStyle = styleId;
     const style = window.IMAGE_STYLES[styleId];
@@ -328,23 +336,35 @@
       }`;
     });
 
-    // ✨ 글로벌 스타일 선택 시 모든 카드 프롬프트에 즉시 자동 적용!
+    // 모든 개별 카드의 드롭다운 'global' 라벨 갱신
+    document.querySelectorAll('[id^="card-style-"]').forEach((sel) => {
+      const optGlobal = sel.querySelector('option[value="global"]');
+      if (optGlobal) {
+        optGlobal.textContent = `🌐 전체 스타일 따름 (${style.name})`;
+      }
+    });
+
+    // ✨ 글로벌 스타일을 따르는 모든 카드의 프롬프트 텍스트창 즉시 동기화!
     if (_imageCards && _imageCards.length > 0) {
       _imageCards.forEach((card, i) => {
         const cardSelect = document.getElementById(`card-style-${i}`);
         const curCardStyle = cardSelect ? cardSelect.value : (_cardImageStyles[i] || 'global');
-        if (curCardStyle === 'global') {
+        if (curCardStyle === 'global' || !_cardImageStyles[i]) {
           const promptEl = document.getElementById(`img-prompt-${i}`);
-          const curPrompt = promptEl ? promptEl.value : card.prompt;
-          const updated = applyStyleToPromptText(curPrompt, style);
+          const rawText = (promptEl ? promptEl.value : '') || card.prompt || '';
+          const base = cleanPromptOfAllStyles(rawText) || _originalCardPrompts[i] || '';
+          _originalCardPrompts[i] = base;
+
+          const updated = applyStyleToPromptText(base, style);
           if (promptEl) promptEl.value = updated;
           card.prompt = updated;
         }
       });
     }
-  };
+  }
+  window.selectGlobalImageStyle = selectGlobalImageStyle;
 
-  window.renderGlobalStylePills = function() {
+  function renderGlobalStylePills() {
     return Object.values(window.IMAGE_STYLES).map(st => {
       const isCur = st.id === _globalImageStyle;
       return `<button type="button" data-style-id="${st.id}" onclick="selectGlobalImageStyle('${st.id}')"
@@ -354,24 +374,24 @@
         ${st.name}
       </button>`;
     }).join('');
-  };
+  }
+  window.renderGlobalStylePills = renderGlobalStylePills;
 
-  window.applyGlobalStyleToAllPrompts = function(options = {}) {
+  function applyGlobalStyleToAllPrompts(options = {}) {
     const style = window.IMAGE_STYLES[_globalImageStyle];
     if (!style || !_imageCards) return;
 
     _imageCards.forEach((card, i) => {
       const promptEl = document.getElementById(`img-prompt-${i}`);
-      let p = promptEl ? promptEl.value : card.prompt;
-      if (!_originalCardPrompts[i]) {
-        _originalCardPrompts[i] = cleanPromptOfAllStyles(p);
-      }
+      let rawText = (promptEl ? promptEl.value : '') || card.prompt || '';
+      const base = cleanPromptOfAllStyles(rawText) || _originalCardPrompts[i] || '';
+      _originalCardPrompts[i] = base;
 
-      const updated = applyStyleToPromptText(p, style);
+      const updated = applyStyleToPromptText(base, style);
       if (promptEl) promptEl.value = updated;
       card.prompt = updated;
 
-      // 카드별 선택기도 글로벌로 변경
+      // 카드별 선택기도 글로벌로 일괄 동기화
       const cSelect = document.getElementById(`card-style-${i}`);
       if (cSelect) cSelect.value = 'global';
       _cardImageStyles[i] = 'global';
@@ -380,9 +400,10 @@
     if (!options.silent) {
       alert(`✨ 모든 ${_imageCards.length}개 장면에 '${style.name}' 스타일이 적용되었습니다!`);
     }
-  };
+  }
+  window.applyGlobalStyleToAllPrompts = applyGlobalStyleToAllPrompts;
 
-  window.resetPromptsToOriginal = function() {
+  function resetPromptsToOriginal() {
     if (!_imageCards) return;
     _imageCards.forEach((card, i) => {
       if (_originalCardPrompts[i]) {
@@ -392,28 +413,30 @@
       }
     });
     alert('🔄 모든 프롬프트가 원본 상태로 복원되었습니다.');
-  };
+  }
+  window.resetPromptsToOriginal = resetPromptsToOriginal;
 
-  window.changeCardStyle = function(idx, styleId) {
+  function changeCardStyle(idx, styleId) {
     _cardImageStyles[idx] = styleId;
     const promptEl = document.getElementById(`img-prompt-${idx}`);
-    if (!promptEl) return;
+    const card = _imageCards ? _imageCards[idx] : null;
+    if (!card) return;
 
-    let p = promptEl.value;
-    if (!_originalCardPrompts[idx]) {
-      _originalCardPrompts[idx] = cleanPromptOfAllStyles(p);
-    }
+    let rawPrompt = (promptEl ? promptEl.value : '') || card.prompt || '';
+    const base = cleanPromptOfAllStyles(rawPrompt) || _originalCardPrompts[idx] || '';
+    _originalCardPrompts[idx] = base;
 
     const targetStyle = (styleId === 'global')
-      ? window.IMAGE_STYLES[_globalImageStyle]
+      ? (window.IMAGE_STYLES[_globalImageStyle] || window.IMAGE_STYLES['cinematic'])
       : (styleId !== 'none' ? window.IMAGE_STYLES[styleId] : null);
 
-    const updated = applyStyleToPromptText(p, targetStyle);
-    promptEl.value = updated;
-    if (_imageCards[idx]) _imageCards[idx].prompt = updated;
-  };
+    const updated = applyStyleToPromptText(base, targetStyle);
+    if (promptEl) promptEl.value = updated;
+    card.prompt = updated;
+  }
+  window.changeCardStyle = changeCardStyle;
 
-  window.getEffectiveStyleForCard = function(idx) {
+  function getEffectiveStyleForCard(idx) {
     const cardSelect = document.getElementById(`card-style-${idx}`);
     const cardStyleVal = cardSelect ? cardSelect.value : (_cardImageStyles[idx] || 'global');
     if (cardStyleVal === 'none') return null;
@@ -421,7 +444,8 @@
       return window.IMAGE_STYLES[cardStyleVal];
     }
     return window.IMAGE_STYLES[_globalImageStyle] || window.IMAGE_STYLES['cinematic'];
-  };
+  }
+  window.getEffectiveStyleForCard = getEffectiveStyleForCard;
 
 
   // ─── 상태 ───────────────────────────────────────
@@ -2337,6 +2361,24 @@ chapters 배열에 ${chapters} 범위의 챕터를 채워주세요. 예시는 1�
   });
 
   function renderGrokModal(cards) {
+    const globalStyleObj = window.IMAGE_STYLES[_globalImageStyle] || window.IMAGE_STYLES['cinematic'];
+
+    // 모든 카드의 기본 프롬프트 보존 및 유효 스타일 결합
+    cards.forEach((card, i) => {
+      if (!_originalCardPrompts[i]) {
+        _originalCardPrompts[i] = cleanPromptOfAllStyles(card.prompt);
+      }
+      const base = _originalCardPrompts[i] || cleanPromptOfAllStyles(card.prompt);
+      _originalCardPrompts[i] = base;
+
+      const curCardStyle = _cardImageStyles[i] || 'global';
+      const targetStyle = (curCardStyle === 'global')
+        ? globalStyleObj
+        : (curCardStyle !== 'none' ? window.IMAGE_STYLES[curCardStyle] : null);
+
+      card.prompt = applyStyleToPromptText(base, targetStyle);
+    });
+
     document.getElementById('grokModalBody').innerHTML = `
       <!-- 참조 캐릭터 업로드 패널 -->
       <div class="mb-4 p-3 bg-slate-800/60 border border-slate-700 rounded-xl">
@@ -2367,7 +2409,7 @@ chapters 배열에 ${chapters} 범위의 챕터를 채워주세요. 예시는 1�
               🎨 이미지 스타일 프리셋 (Image Style)
             </span>
             <span id="activeStyleBadge" class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-600/70 text-indigo-100 border border-indigo-400/50 shadow-sm">
-              ${window.IMAGE_STYLES[_globalImageStyle]?.name || '📸 실사 시네마틱'}
+              ${globalStyleObj.name}
             </span>
           </div>
           <div class="flex gap-2 items-center">
@@ -2491,7 +2533,9 @@ chapters 배열에 ${chapters} 범위의 챕터를 채워주세요. 예시는 1�
         </div>
       </div>
       <div class="space-y-5">
-        ${cards.map((card, i) => `
+        ${cards.map((card, i) => {
+          const curCardStyle = _cardImageStyles[i] || 'global';
+          return `
           <div id="grok-card-${i}" class="bg-slate-900/60 border border-slate-700 rounded-xl overflow-hidden">
 
             <!-- 카드 헤더 -->
@@ -2509,19 +2553,11 @@ chapters 배열에 ${chapters} 범위의 챕터를 채워주세요. 예시는 1�
                     <span class="text-[10px] text-slate-400 font-semibold">스타일:</span>
                     <select id="card-style-${i}" onchange="changeCardStyle(${i}, this.value)"
                       class="bg-slate-800 border border-slate-600 text-slate-200 text-[11px] rounded px-2 py-0.5 focus:outline-none focus:border-indigo-400">
-                      <option value="global">🌐 전체 스타일 따름</option>
-                      <option value="cinematic">📸 실사 시네마틱</option>
-                      <option value="anime">🎌 애니메이션/웹툰</option>
-                      <option value="pixar3d">🧸 3D 픽사/디즈니</option>
-                      <option value="cyberpunk">🏙️ 사이버펑크 네온</option>
-                      <option value="watercolor">🖌️ 수채화 아트</option>
-                      <option value="retro90s">📻 90s 레트로 필름</option>
-                      <option value="sketch">✏️ 펜 &amp; 잉크 스케치</option>
-                      <option value="fantasy">✨ 판타지 컨셉아트</option>
-                      <option value="scifi">🌌 우주 &amp; SF</option>
-                      <option value="minimalist">📐 미니멀 벡터</option>
-                      <option value="whiteboard">📋 화이트보드 애니메이션</option>
-                      <option value="none">🚫 스타일 태그 없음</option>
+                      <option value="global" ${curCardStyle === 'global' ? 'selected' : ''}>🌐 전체 스타일 따름 (${globalStyleObj.name})</option>
+                      ${Object.values(window.IMAGE_STYLES).map(st => `
+                        <option value="${st.id}" ${curCardStyle === st.id ? 'selected' : ''}>${st.name}</option>
+                      `).join('')}
+                      <option value="none" ${curCardStyle === 'none' ? 'selected' : ''}>🚫 스타일 태그 없음</option>
                     </select>
                   </div>
                 </div>
@@ -2638,7 +2674,8 @@ chapters 배열에 ${chapters} 범위의 챕터를 채워주세요. 예시는 1�
                 </div>
               </div>
             </div>
-          </div>`).join('')}
+          </div>`;
+        }).join('')}
       </div>`;
     // 초기 글자수 카운터 갱신
     cards.forEach((_, i) => updateSubCount(i));
